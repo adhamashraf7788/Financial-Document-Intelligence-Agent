@@ -159,6 +159,15 @@ For this short project, prefer simple Git operations over complicated branching 
 
 ---
 
+### 8. Mock Data
+
+Shared example data lives in `/mock-data`, organized by service (e.g. `doc_processor_output/`, `chunks/`, `retrieval_results/`). Each file conforms exactly to the schemas defined in `docs/api-contracts.md`.
+
+Use `/mock-data` to build and test your service **before** the real upstream service is ready:
+
+- If your Issue depends on another service's output, build against the matching file in `/mock-data` first.
+- Once the real upstream service is implemented and its Integration Issue is picked up, swap the mock call for the real one — no other code should need to change if you built against the schema correctly.
+- If you add a new data shape that others will depend on, add or update the corresponding file in `/mock-data` in the same PR as your schema change, so downstream teammates always have something current to build against.
 
 ### Golden Rule
 
