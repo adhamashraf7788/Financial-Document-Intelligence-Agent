@@ -1,0 +1,4 @@
+
+services/doc_processor/__pycache__/
+services/doc_processor/tests/pages/
+services/doc_processor/tests/*.pdf
