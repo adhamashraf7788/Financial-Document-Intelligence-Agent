@@ -3,7 +3,7 @@
   "total_chunks_created": 3,
   "chunks": [
     {
-      "chunk_id": "doc_017_p1_parent_c3baa8",
+      "chunk_id": "doc_017_p1_parent_19cf4639faa9",
       "document_id": "doc_017",
       "page": 1,
       "section": "Income Statement",
@@ -14,7 +14,7 @@
       }
     },
     {
-      "chunk_id": "doc_017_p1_child_60dfdd",
+      "chunk_id": "doc_017_p1_child_e7bc7bb41417",
       "document_id": "doc_017",
       "page": 1,
       "section": "Income Statement",
@@ -22,11 +22,11 @@
       "text": "Section: Income Statement\nTotal operating income for fiscal year 2020 was $142.5M compared to $120.0M in fiscal year 2019.",
       "metadata": {
         "is_parent": false,
-        "parent_id": "doc_017_p1_parent_c3baa8"
+        "parent_id": "doc_017_p1_parent_19cf4639faa9"
       }
     },
     {
-      "chunk_id": "doc_017_p1_tbl_b4aaa4",
+      "chunk_id": "doc_017_p1_tbl_c9bcb5fb5cb2",
       "document_id": "doc_017",
       "page": 1,
       "section": "Income Statement",
