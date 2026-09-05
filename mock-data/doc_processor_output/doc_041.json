@@ -1,0 +1,58 @@
+{
+  "document_id": "doc_041",
+  "pages": [
+    {
+      "page_number": 2,
+      "blocks": [
+        {
+          "block_id": "doc_041_p2_b01",
+          "content_type": "text",
+          "text": "Finished goods inventory increased due to higher manufacturing throughput during Q4.",
+          "table_data": null,
+          "bounding_box": [
+            15,
+            30,
+            120,
+            60
+          ],
+          "section": "Balance Sheet"
+        },
+        {
+          "block_id": "doc_041_p2_b02",
+          "content_type": "table",
+          "text": null,
+          "table_data": [
+            [
+              "Inventory Category",
+              "2018 ($k)",
+              "2019 ($k)"
+            ],
+            [
+              "Raw materials",
+              "4,120",
+              "5,230"
+            ],
+            [
+              "Work in progress",
+              "1,850",
+              "2,100"
+            ],
+            [
+              "Finished goods",
+              "8,100",
+              "9,447"
+            ]
+          ],
+          "bounding_box": [
+            15,
+            70,
+            220,
+            180
+          ],
+          "section": "Balance Sheet"
+        }
+      ]
+    }
+  ],
+  "status": "success"
+}
