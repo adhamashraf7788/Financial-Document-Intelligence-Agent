@@ -1,0 +1,58 @@
+{
+  "document_id": "doc_017",
+  "pages": [
+    {
+      "page_number": 1,
+      "blocks": [
+        {
+          "block_id": "doc_017_p1_b01",
+          "content_type": "text",
+          "text": "Total operating income for fiscal year 2020 was $142.5M compared to $120.0M in fiscal year 2019.",
+          "table_data": null,
+          "bounding_box": [
+            10,
+            20,
+            100,
+            50
+          ],
+          "section": "Income Statement"
+        },
+        {
+          "block_id": "doc_017_p1_b02",
+          "content_type": "table",
+          "text": null,
+          "table_data": [
+            [
+              "Item",
+              "2019",
+              "2020"
+            ],
+            [
+              "Revenue",
+              "1,200",
+              "1,450"
+            ],
+            [
+              "Operating Expense",
+              "900",
+              "1,050"
+            ],
+            [
+              "Net Income",
+              "300",
+              "400"
+            ]
+          ],
+          "bounding_box": [
+            10,
+            60,
+            200,
+            150
+          ],
+          "section": "Income Statement"
+        }
+      ]
+    }
+  ],
+  "status": "success"
+}
