@@ -171,6 +171,52 @@ Response (JSON)
     }
   ]
 }
+
+ *** Base Structure ***
+{
+  "answer_type": "<type_name>",
+  "evidence": [ { "document_id": "...", "page": 0, "section": "..." } ],
+  "params": { ... }
+}
+
+ *** Type: direct ***
+Required params: value (string or number). Required: at least 1 evidence citation.
+{
+  "answer_type": "direct",
+  "evidence": [ { "document_id": "doc_017", "page": 1, "section": "Income Statement" } ],
+  "params": { "value": "$142.5M" }
+}
+
+ *** Type: calculated ***
+Required params: value (number), formula (string). Required: one evidence citation per operand used in the formula.
+{
+  "answer_type": "calculated",
+  "evidence": [
+    { "document_id": "doc_041", "page": 2, "section": "Operating Expenses" },
+    { "document_id": "doc_041", "page": 2, "section": "Operating Expenses" }
+  ],
+  "params": { "value": 13.4, "formula": "(3875-3410)/3410*100" }
+}
+
+ *** Type: multi_span ***
+Required params: values (array, 2+ items). Required: at least one evidence citation per value (one citation may cover multiple values if they come from the same cell/passage).
+{
+  "answer_type": "multi_span",
+  "evidence": [
+    { "document_id": "doc_022", "page": 3, "section": "Operating Expenses" }
+  ],
+  "params": { "values": ["Marketing", "R&D", "Logistics"] }
+}
+
+ *** Type: insufficient_evidence ***
+Required params: reason (string). Evidence array is optional and may be empty.
+{
+  "answer_type": "insufficient_evidence",
+  "evidence": [],
+  "params": { "reason": "No document in the indexed corpus reports restructuring expenses." }
+}
+
+ *** Fixtures ***: One example JSON per type lives in mock-data/answers/ (direct.json, calculated.json, multi_span.json, insufficient_evidence.json) — use these to build your stub before the real agent-service is ready.
 ```
 
 ## reranker-service (Cross-Encoder Reranking)
