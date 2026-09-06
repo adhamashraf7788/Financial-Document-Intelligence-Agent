@@ -1,0 +1,8 @@
+{
+  "answer_type": "calculated",
+  "evidence": [
+    { "document_id": "doc_041", "page": 2, "section": "Operating Expenses" },
+    { "document_id": "doc_041", "page": 2, "section": "Operating Expenses" }
+  ],
+  "params": { "value": 13.4, "formula": "(3875-3410)/3410*100" }
+}
