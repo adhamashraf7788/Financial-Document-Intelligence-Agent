@@ -171,15 +171,19 @@ Response (JSON)
     }
   ]
 }
+```
 
- *** Base Structure ***
+## Strict Answer Schema:
+
+ ### Base Structure:
+
 {
   "answer_type": "<type_name>",
   "evidence": [ { "document_id": "...", "page": 0, "section": "..." } ],
   "params": { ... }
 }
 
- *** Type: direct ***
+ ### Type: direct
 Required params: value (string or number). Required: at least 1 evidence citation.
 {
   "answer_type": "direct",
@@ -187,7 +191,7 @@ Required params: value (string or number). Required: at least 1 evidence citatio
   "params": { "value": "$142.5M" }
 }
 
- *** Type: calculated ***
+ ### Type: calculated
 Required params: value (number), formula (string). Required: one evidence citation per operand used in the formula.
 {
   "answer_type": "calculated",
@@ -198,7 +202,7 @@ Required params: value (number), formula (string). Required: one evidence citati
   "params": { "value": 13.4, "formula": "(3875-3410)/3410*100" }
 }
 
- *** Type: multi_span ***
+ ### Type: multi_span
 Required params: values (array, 2+ items). Required: at least one evidence citation per value (one citation may cover multiple values if they come from the same cell/passage).
 {
   "answer_type": "multi_span",
@@ -208,7 +212,7 @@ Required params: values (array, 2+ items). Required: at least one evidence citat
   "params": { "values": ["Marketing", "R&D", "Logistics"] }
 }
 
- *** Type: insufficient_evidence ***
+ ### Type: insufficient_evidence
 Required params: reason (string). Evidence array is optional and may be empty.
 {
   "answer_type": "insufficient_evidence",
@@ -216,8 +220,8 @@ Required params: reason (string). Evidence array is optional and may be empty.
   "params": { "reason": "No document in the indexed corpus reports restructuring expenses." }
 }
 
- *** Fixtures ***: One example JSON per type lives in mock-data/answers/ (direct.json, calculated.json, multi_span.json, insufficient_evidence.json) — use these to build your stub before the real agent-service is ready.
-```
+ Fixtures: One example JSON per type lives in mock-data/answers/ (direct.json, calculated.json, multi_span.json, insufficient_evidence.json) — use these to build your stub before the real agent-service is ready.
+
 
 ## reranker-service (Cross-Encoder Reranking)
 
