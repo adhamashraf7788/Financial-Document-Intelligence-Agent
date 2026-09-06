@@ -8,8 +8,8 @@ import json
 import weaviate.classes.query as wvc_query
 
 class WeaviateStore:
-    def __init__(self, host: str = "localhost", port: int = 8085, collection_name: str = "DocumentChunk"):
-        self.client = weaviate.connect_to_local(host=host, port=port)
+    def __init__(self, host: str = "localhost", port: int = 8085, grpc_port: int = 50052, collection_name: str = "DocumentChunk"):
+        self.client = weaviate.connect_to_local(host=host, port=port, grpc_port=grpc_port)
         self.collection_name = collection_name
         self._ensure_collection()
 
@@ -151,19 +151,27 @@ class WeaviateStore:
                     metadata_val = json.loads(metadata_val)
                 except Exception:
                     metadata_val = {}
+            elif not isinstance(metadata_val, dict):
+                metadata_val = {}
 
-            score = getattr(obj.metadata, score_attr, 0.0) if obj.metadata else 0.0
 
-            results.append({
-                "chunk_id": obj.properties.get("chunk_id"),
+            # Metadata dictionary
+            combined_metadata = {
                 "document_id": obj.properties.get("document_id"),
                 "page": obj.properties.get("page"),
                 "section": obj.properties.get("section"),
                 "content_type": obj.properties.get("content_type"),
-                "text": obj.properties.get("text"),
-                "score": float(score) if score is not None else 0.0,
-                "metadata": metadata_val or {}
-            })
+                **metadata_val
+            }
+
+            score = getattr(obj.metadata, score_attr, 0.0) if obj.metadata else 0.0
+
+            results.append({
+                            "chunk_id": obj.properties.get("chunk_id"),
+                            "text": obj.properties.get("text"),
+                            "score": float(score) if score is not None else 0.0,
+                            "metadata": combined_metadata
+                        })
         return results
 
 

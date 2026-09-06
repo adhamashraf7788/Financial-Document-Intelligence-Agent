@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
     print("Loading embedding model and connecting to vector DB...")
     chunker = DocumentChunker()
     embedder = BGEM3EmbeddingProvider()
-    weaviate_store = WeaviateStore(port=8085)
+    weaviate_store = WeaviateStore(port=8085, grpc_port= 50052)
     print("Services initialized successfully.")
     yield
     if weaviate_store:
@@ -106,7 +106,40 @@ async def search_bm25(
     }
 
 
-# vector search only test
+# bm25 search only
+@app.post("/search/bm25")
+async def search_bm25(
+    query: str,
+    candidates_retrieved: int = 30,
+    top_k_returned: int = 5
+):
+    if not weaviate_store:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+            detail="Weaviate service is not initialized"
+        )
+
+    results = weaviate_store.bm25_search(
+        query_text=query, 
+        limit=candidates_retrieved
+    )
+
+    top_results = results[:top_k_returned]
+    
+    # Tag retrieval method
+    for item in top_results:
+        item["metadata"]["retrieval_method"] = "bm25"
+
+    return {
+        "query": query,
+        "search_mode": "bm25",
+        "candidates_retrieved": len(results),
+        "top_k_returned": len(top_results),
+        "results": top_results
+    }
+
+
+# vector search only
 @app.post("/search/vector")
 async def search_vector(
     query: str,
@@ -119,7 +152,6 @@ async def search_vector(
             detail="Retrieval or embedding service is not initialized"
         )
 
-    # Pure Semantic Search
     query_vector = embedder.generate_embedding(query)
     results = weaviate_store.vector_search(
         query_vector=query_vector, 
@@ -127,6 +159,10 @@ async def search_vector(
     )
 
     top_results = results[:top_k_returned]
+    
+    # Tag retrieval method
+    for item in top_results:
+        item["metadata"]["retrieval_method"] = "dense"
 
     return {
         "query": query,
@@ -136,7 +172,8 @@ async def search_vector(
         "results": top_results
     }
 
-# hybrid search test
+
+# hybrid search
 @app.post("/search/hybrid")
 async def search_hybrid(
     query: str,
@@ -150,7 +187,6 @@ async def search_hybrid(
             detail="Retrieval or embedding service is not initialized"
         )
 
-    # Hybrid Search (BM25 + Vector combined)
     query_vector = embedder.generate_embedding(query)
     results = weaviate_store.hybrid_search(
         query_text=query, 
@@ -160,6 +196,10 @@ async def search_hybrid(
     )
 
     top_results = results[:top_k_returned]
+    
+    # Tag retrieval method
+    for item in top_results:
+        item["metadata"]["retrieval_method"] = "hybrid"
 
     return {
         "query": query,
