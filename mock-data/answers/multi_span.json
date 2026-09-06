@@ -1,0 +1,7 @@
+{
+  "answer_type": "multi_span",
+  "evidence": [
+    { "document_id": "doc_022", "page": 3, "section": "Operating Expenses" }
+  ],
+  "params": { "values": ["Marketing", "R&D", "Logistics"] }
+}

@@ -1,4 +1,64 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
 
-services/doc_processor/__pycache__/
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Environment variables / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Pytest / testing ---
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# --- IDE / editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+*.log
+
+# --- HuggingFace / model cache ---
+.cache/
+*.safetensors
+*.bin
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Langfuse / eval artifacts ---
+langfuse_data/
+eval_results/
+*.db
+
+# --- Scratch / setup script leftovers ---
+bodies/
+scaffold_repo.sh
+setup_github*.sh
+
+# --- Doc processor local test files ---
 services/doc_processor/tests/pages/
 services/doc_processor/tests/*.pdf
+
+# --- OS files ---
+.DS_Store
+Thumbs.db

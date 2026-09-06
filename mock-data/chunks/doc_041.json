@@ -1,0 +1,41 @@
+{
+  "document_id": "doc_041",
+  "total_chunks_created": 3,
+  "chunks": [
+    {
+      "chunk_id": "doc_041_p2_parent_a8389dda1526",
+      "document_id": "doc_041",
+      "page": 2,
+      "section": "Balance Sheet",
+      "content_type": "text",
+      "text": "Section: Balance Sheet\nFinished goods inventory increased due to higher manufacturing throughput during Q4.",
+      "metadata": {
+        "is_parent": true
+      }
+    },
+    {
+      "chunk_id": "doc_041_p2_child_bc511974a4e9",
+      "document_id": "doc_041",
+      "page": 2,
+      "section": "Balance Sheet",
+      "content_type": "text",
+      "text": "Section: Balance Sheet\nFinished goods inventory increased due to higher manufacturing throughput during Q4.",
+      "metadata": {
+        "is_parent": false,
+        "parent_id": "doc_041_p2_parent_a8389dda1526"
+      }
+    },
+    {
+      "chunk_id": "doc_041_p2_tbl_dd46e0ca48dd",
+      "document_id": "doc_041",
+      "page": 2,
+      "section": "Balance Sheet",
+      "content_type": "table",
+      "text": "Section: Balance Sheet\n| Inventory Category | 2018 ($k) | 2019 ($k) |\n| --- | --- | --- |\n| Raw materials | 4,120 | 5,230 |\n| Work in progress | 1,850 | 2,100 |\n| Finished goods | 8,100 | 9,447 |",
+      "metadata": {
+        "is_complete_table": true,
+        "num_rows": 3
+      }
+    }
+  ]
+}

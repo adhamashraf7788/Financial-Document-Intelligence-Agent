@@ -1,0 +1,41 @@
+{
+  "document_id": "doc_017",
+  "total_chunks_created": 3,
+  "chunks": [
+    {
+      "chunk_id": "doc_017_p1_parent_19cf4639faa9",
+      "document_id": "doc_017",
+      "page": 1,
+      "section": "Income Statement",
+      "content_type": "text",
+      "text": "Section: Income Statement\nTotal operating income for fiscal year 2020 was $142.5M compared to $120.0M in fiscal year 2019.",
+      "metadata": {
+        "is_parent": true
+      }
+    },
+    {
+      "chunk_id": "doc_017_p1_child_e7bc7bb41417",
+      "document_id": "doc_017",
+      "page": 1,
+      "section": "Income Statement",
+      "content_type": "text",
+      "text": "Section: Income Statement\nTotal operating income for fiscal year 2020 was $142.5M compared to $120.0M in fiscal year 2019.",
+      "metadata": {
+        "is_parent": false,
+        "parent_id": "doc_017_p1_parent_19cf4639faa9"
+      }
+    },
+    {
+      "chunk_id": "doc_017_p1_tbl_c9bcb5fb5cb2",
+      "document_id": "doc_017",
+      "page": 1,
+      "section": "Income Statement",
+      "content_type": "table",
+      "text": "Section: Income Statement\n| Item | 2019 | 2020 |\n| --- | --- | --- |\n| Revenue | 1,200 | 1,450 |\n| Operating Expense | 900 | 1,050 |\n| Net Income | 300 | 400 |",
+      "metadata": {
+        "is_complete_table": true,
+        "num_rows": 3
+      }
+    }
+  ]
+}
