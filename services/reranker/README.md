@@ -172,7 +172,8 @@ Only `chunk_id`, `text`, `score`, and `metadata` are read by the reranker's `Can
 
 ## Mock Test Data
 
-Use `mock-data/retrieval_results/q1.json` for local testing — contains realistic candidates matching the shape above.
+- `mock-data/retrieval_results/q1.json` — sample candidate pool (retrieval-api's output shape) for testing `/rerank` as input.
+- `mock-data/reranker_results/q1.json` — sample `/rerank` response for the same query, showing what a correctly-reranked output looks like (relevant chunks with high logits, irrelevant ones demoted to negative logits). Useful for whoever builds agent-service to develop against without a live reranker or retrieval-api running.
 
 ## No Database Dependency
 
