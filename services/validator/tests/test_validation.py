@@ -1,5 +1,5 @@
-from services.validator.validation import validate_answer
-
+import pytest
+from services.validator.validation import validate_answer, evaluate_formula
 
 def test_valid_direct_answer():
     payload = {
@@ -37,7 +37,7 @@ def test_valid_calculated_answer():
             {"document_id": "doc_041", "page": 2, "section": "Operating Expenses"},
             {"document_id": "doc_041", "page": 2, "section": "Operating Expenses"},
         ],
-        "params": {"value": 13.4, "formula": "(3875-3410)/3410*100"},
+        "params": {"value": 13.636, "formula": "(3875-3410)/3410*100"},
     }
     result = validate_answer(payload)
     assert result.valid is True
@@ -59,3 +59,16 @@ def test_valid_insufficient_evidence_answer():
     }
     result = validate_answer(payload)
     assert result.valid is True
+
+def test_evaluate_formula_correct_math():
+    assert evaluate_formula("(3875-3410)/3410*100") == pytest.approx(13.6363, rel=1e-3)
+
+
+def test_evaluate_formula_rejects_code_injection():
+    with pytest.raises(ValueError):
+        evaluate_formula("__import__('os').system('echo hacked')")
+
+
+def test_evaluate_formula_rejects_semicolon():
+    with pytest.raises(ValueError):
+        evaluate_formula("1+1; 2+2")
