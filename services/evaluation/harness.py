@@ -1,15 +1,14 @@
-from loader import load_questions
-from predictor import predict_answer
-from scorer import exact_match, f1_score, numerical_accuracy
-
+from services.evaluation.loader import load_questions
+from services.evaluation.predictor import predict_answer
+from services.evaluation.scorer import exact_match, f1_score, numerical_accuracy
 
 def extract_predicted_value(answer):
 
     if answer.answer_type == "insufficient_evidence":
         return None
     if answer.answer_type == "multi_span":
-        return answer.params.get("values")
-    return answer.params.get("value")
+        return answer.params.values
+    return answer.params.value
 
 
 def score_question(question: dict, predicted_answer) -> dict:

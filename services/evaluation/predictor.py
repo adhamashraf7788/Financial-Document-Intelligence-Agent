@@ -1,5 +1,5 @@
 import random
-from models import DirectAnswer, CalculatedAnswer, MultiSpanAnswer, InsufficientEvidenceAnswer, Evidence, Answer
+from shared.schemas import DirectAnswer, CalculatedAnswer, MultiSpanAnswer, InsufficientEvidenceAnswer, Evidence, Answer
 
 
 def predict_answer(question: str) -> Answer:
@@ -20,7 +20,7 @@ def predict_answer(question: str) -> Answer:
         return CalculatedAnswer(
             answer_type="calculated",
             evidence=dummy_evidence,
-            params={"value": 42.0, "formula": "(50-8)/8*100"}
+            params={"value": 525.0, "formula": "(50-8)/8*100"}
         )
     elif choice == "multi_span":
         return MultiSpanAnswer(
