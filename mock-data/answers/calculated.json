@@ -4,5 +4,5 @@
     { "document_id": "doc_041", "page": 2, "section": "Operating Expenses" },
     { "document_id": "doc_041", "page": 2, "section": "Operating Expenses" }
   ],
-  "params": { "value": 13.4, "formula": "(3875-3410)/3410*100" }
+  "params": { "value": 13.636, "formula": "(3875-3410)/3410*100" }
 }
