@@ -71,7 +71,7 @@ Response (JSON)
 
 Description: Executes hybrid retrieval (dense vectors + sparse BM25 keyword search) and returns the top-K scored chunks to the agent-service. Does not itself rerank — the standalone reranker-service is the only cross-encoder reranking step in the pipeline.
 
-Endpoint: `POST /search/hybrid`
+Endpoint: `POST /search/pipeline`
 
 > Important — this is a query-parameter endpoint, not a JSON body.The route is defined with plain FastAPI function args (`query: str`, `alpha: float = Query(...)`, etc.), not a Pydantic request model. Send these as URL query params (`params=` in httpx/requests), not as a JSON payload.
 
@@ -88,7 +88,7 @@ Request (query params)
 
 Example call:
 ```
-POST /search/hybrid?query=What+was+CTS%27s+finished-goods+balance+in+2019%3F&alpha=0.5&candidates_retrieved=30&top_k_returned=20
+POST /search/pipeline?query=What+was+CTS%27s+finished-goods+balance+in+2019%3F&alpha=0.5&candidates_retrieved=30&top_k_returned=20
 ```
 
 Response (JSON)
