@@ -1,5 +1,7 @@
 import pytest
 from services.validator.validation import validate_answer, evaluate_formula
+from fastapi.testclient import TestClient
+from services.validator.main import app
 
 def test_valid_direct_answer():
     payload = {
@@ -72,3 +74,45 @@ def test_evaluate_formula_rejects_code_injection():
 def test_evaluate_formula_rejects_semicolon():
     with pytest.raises(ValueError):
         evaluate_formula("1+1; 2+2")
+
+def test_multi_span_single_value_rejected():
+    payload = {
+        "answer_type": "multi_span",
+        "evidence": [{"document_id": "doc_022", "page": 3}],
+        "params": {"values": ["Marketing"]},
+    }
+    result = validate_answer(payload)
+    assert result.valid is False
+
+
+def test_calculated_missing_formula_rejected():
+    payload = {
+        "answer_type": "calculated",
+        "evidence": [{"document_id": "doc_041", "page": 2}],
+        "params": {"value": 13.4},
+    }
+    result = validate_answer(payload)
+    assert result.valid is False
+
+client = TestClient(app)
+
+
+def test_endpoint_valid_direct_answer():
+    payload = {
+        "answer_type": "direct",
+        "evidence": [{"document_id": "doc_017", "page": 1, "section": "Income Statement"}],
+        "params": {"value": "$142.5M"},
+    }
+    response = client.post("/validate_answer", json=payload)
+    assert response.status_code == 200
+    assert response.json()["valid"] is True
+
+def test_endpoint_invalid_answer_rejected():
+    payload = {
+        "answer_type": "direct",
+        "evidence": [],
+        "params": {"value": "$142.5M"},
+    }
+    response = client.post("/validate_answer", json=payload)
+    assert response.status_code == 200
+    assert response.json()["valid"] is False

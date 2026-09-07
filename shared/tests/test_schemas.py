@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
 from pydantic import ValidationError
-from schemas import DirectAnswer, CalculatedAnswer, MultiSpanAnswer, InsufficientEvidenceAnswer
+from schemas import DirectAnswer, CalculatedAnswer, MultiSpanAnswer, InsufficientEvidenceAnswer, Evidence
 
 
 def test_direct_valid():
@@ -86,3 +86,12 @@ def test_insufficient_evidence_valid_with_no_evidence():
 def test_insufficient_evidence_missing_reason_rejected():
     with pytest.raises(ValidationError):
         InsufficientEvidenceAnswer(params={})
+
+def test_evidence_zero_page_rejected():
+    with pytest.raises(ValidationError):
+        Evidence(document_id="doc_017", page=0)
+
+
+def test_evidence_empty_document_id_rejected():
+    with pytest.raises(ValidationError):
+        Evidence(document_id="", page=1)
