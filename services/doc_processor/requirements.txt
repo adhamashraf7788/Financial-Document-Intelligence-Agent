@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+paddleocr
+paddlepaddle==3.2.0
+pymupdf
+paddlex[ocr]

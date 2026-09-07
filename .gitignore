@@ -37,7 +37,7 @@ Thumbs.db
 # --- Docker ---
 *.log
 
-# --- HuggingFace / model cache (if downloaded locally, not committed) ---
+# --- HuggingFace / model cache ---
 .cache/
 *.safetensors
 *.bin
@@ -45,7 +45,7 @@ Thumbs.db
 # --- Jupyter ---
 .ipynb_checkpoints/
 
-# --- Langfuse / eval artifacts (local runs, not for commit) ---
+# --- Langfuse / eval artifacts ---
 langfuse_data/
 eval_results/
 *.db
@@ -54,6 +54,10 @@ eval_results/
 bodies/
 scaffold_repo.sh
 setup_github*.sh
+
+# --- Doc processor local test files ---
+services/doc_processor/tests/pages/
+services/doc_processor/tests/*.pdf
 
 # --- OS files ---
 .DS_Store
