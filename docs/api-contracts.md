@@ -216,7 +216,7 @@ or
 
 Description: Executes hybrid retrieval (dense vectors + sparse BM25 keyword search) and returns the top-K scored chunks to the agent-service. Does not itself rerank — the standalone reranker-service is the only cross-encoder reranking step in the pipeline.
 
-### Endpoint
+Endpoint: `POST /search/pipeline`
 
 `POST /search/hybrid`
 
@@ -227,19 +227,9 @@ Sibling endpoints with the same parameter shape:
 * `POST /search/bm25` (no `alpha`)
 * `POST /search/vector` (no `alpha`)
 
-### Request Parameters
-
-| Param                  | Type  | Default  | Notes                                       |
-| ---------------------- | ----- | -------- | ------------------------------------------- |
-| `query`                | str   | required | The search query                            |
-| `alpha`                | float | `0.5`    | `0.0` = pure BM25, `1.0` = pure vector      |
-| `candidates_retrieved` | int   | `30`     | How many candidates to fetch before slicing |
-| `top_k_returned`       | int   | `5`      | How many to actually return in the response |
-
-### Example Call
-
-```text
-POST /search/hybrid?query=What+was+CTS%27s+finished-goods+balance+in+2019%3F&alpha=0.5&candidates_retrieved=30&top_k_returned=20
+Example call:
+```
+POST /search/pipeline?query=What+was+CTS%27s+finished-goods+balance+in+2019%3F&alpha=0.5&candidates_retrieved=30&top_k_returned=20
 ```
 
 ### Response
