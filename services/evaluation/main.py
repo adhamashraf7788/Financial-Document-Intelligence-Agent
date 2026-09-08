@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from dotenv import load_dotenv
 from langfuse import observe, get_client
+from pathlib import Path
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 langfuse = get_client()
 

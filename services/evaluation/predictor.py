@@ -1,6 +1,8 @@
 import random
 from shared.schemas import DirectAnswer, CalculatedAnswer, MultiSpanAnswer, InsufficientEvidenceAnswer, Evidence, Answer
+from langfuse import observe
 
+@observe()
 
 def predict_answer(question: str) -> Answer:
 

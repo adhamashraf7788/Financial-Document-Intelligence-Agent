@@ -1,6 +1,11 @@
 from services.evaluation.loader import load_questions
 from services.evaluation.predictor import predict_answer
 from services.evaluation.scorer import exact_match, f1_score, numerical_accuracy
+from langfuse import observe
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 def extract_predicted_value(answer):
 
@@ -10,6 +15,7 @@ def extract_predicted_value(answer):
         return answer.params.values
     return answer.params.value
 
+@observe()
 
 def score_question(question: dict, predicted_answer) -> dict:
     
@@ -51,6 +57,7 @@ def score_question(question: dict, predicted_answer) -> dict:
 
     return result
 
+@observe()
 
 def run_benchmark(questions_path: str) -> dict:
 
