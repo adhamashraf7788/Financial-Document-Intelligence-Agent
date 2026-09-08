@@ -28,8 +28,8 @@ class Chunk(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class Evidence(BaseModel):
-    document_id: str
-    page: int
+    document_id: str = Field(..., min_length=1)
+    page: int = Field(..., gt=0)
     section: str = ""
 
 class DirectAnswer(BaseModel):
