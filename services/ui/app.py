@@ -4,32 +4,75 @@ import re
 import requests
 import gradio as gr
 
-MOCK_UI_PATH = os.path.join(
-    os.path.dirname(__file__), "../../mock-data/ui_service_mock.json"
+MOCK_UI_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../mock-data/ui_service_mock.json")
 )
 
 
 def load_dashboard_data():
-    """Loads dashboard statistics and document corpus list."""
+    """Loads dashboard statistics, document list, and recent queries."""
+    orchestrator_url = os.getenv("ORCHESTRATOR_SERVICE_URL", "http://localhost:8000")
     try:
-        with open(MOCK_UI_PATH, "r") as f:
-            data = json.load(f)
+        response = requests.get(f"{orchestrator_url}/api/v1/dashboard", timeout=3)
+        if response.status_code == 200:
+            data = response.json()
             stats = data.get("dashboard_stats", {})
-            docs = data.get("indexed_documents", [])
-            df_docs = [
+            docs = [
                 [
                     d.get("document_id"),
                     d.get("filename"),
                     d.get("pages"),
                     d.get("tables"),
                 ]
-                for d in docs
+                for d in data.get("indexed_documents", [])
+            ]
+            queries = [
+                [
+                    q.get("query_id"),
+                    q.get("question"),
+                    q.get("latency_ms"),
+                    q.get("status"),
+                ]
+                for q in data.get("recent_queries", [])
             ]
             return (
-                f"📄 Total Docs: {stats.get('indexed_documents', 0)}",
-                f"📊 Extracted Tables: {stats.get('total_tables', 0)}",
-                f"⚡ Avg Latency: {stats.get('avg_latency_ms', 0)} ms",
-                df_docs,
+                f"Total Docs: {stats.get('indexed_documents', 0)}",
+                f"Extracted Tables: {stats.get('total_tables', 0)}",
+                f"Avg Latency: {stats.get('avg_latency_ms', 0)} ms",
+                docs,
+                queries,
+            )
+    except Exception:
+        pass
+
+    try:
+        with open(MOCK_UI_PATH, "r") as f:
+            data = json.load(f)
+            stats = data.get("dashboard_stats", {})
+            docs = [
+                [
+                    d.get("document_id"),
+                    d.get("filename"),
+                    d.get("pages"),
+                    d.get("tables"),
+                ]
+                for d in data.get("indexed_documents", [])
+            ]
+            queries = [
+                [
+                    q.get("query_id"),
+                    q.get("question"),
+                    q.get("latency_ms"),
+                    q.get("status"),
+                ]
+                for q in data.get("recent_queries", [])
+            ]
+            return (
+                f"Total Docs: {stats.get('indexed_documents', 0)}",
+                f"Extracted Tables: {stats.get('total_tables', 0)}",
+                f"Avg Latency: {stats.get('avg_latency_ms', 0)} ms",
+                docs,
+                queries,
             )
     except Exception:
         mock_docs = [
@@ -37,20 +80,25 @@ def load_dashboard_data():
             ["doc_022", "MSFT_Q4_2021.pdf", 2, 1],
             ["doc_041", "AMZN_Annual_2020.pdf", 5, 4],
         ]
+        mock_queries = [
+            ["q_001", "What was operating income in 2020?", "340 ms", "SUCCESS"],
+            ["q_002", "Calculate percentage change in R&D", "510 ms", "SUCCESS"],
+        ]
         return (
-            "📄 Total Docs: 3",
-            "📊 Extracted Tables: 7",
-            "⚡ Avg Latency: 420 ms",
+            "Total Docs: 3",
+            "Extracted Tables: 7",
+            "Avg Latency: 425 ms",
             mock_docs,
+            mock_queries,
         )
 
 
 def format_citations(evidence_list):
     """Formats mandatory document and page citations."""
     if not evidence_list:
-        return "\n\n⚠️ *No citations provided or insufficient evidence.*"
+        return "\n\n*No citations provided or insufficient evidence.*"
 
-    citations = ["\n\n---\n### 📌 Source Citations (Grounded Evidence):"]
+    citations = ["\n\n---\n### Source Citations (Grounded Evidence):"]
     for ev in evidence_list:
         doc = ev.get("document_id", "N/A")
         page = ev.get("page", "N/A")
@@ -66,7 +114,6 @@ def get_mock_fallback(question, document_id):
     doc = document_id if document_id else "doc_017"
     q_lower = question.lower()
 
-    # التقاط الرموز والكلمات الحسابية مثل 4-1 أو الجمع أو القسمة
     has_math_op = (
         bool(re.search(r"[\+\-\*/%]", question))
         or "calculate" in q_lower
@@ -100,6 +147,7 @@ def get_mock_fallback(question, document_id):
             "evidence": [],
             "params": {"reason": "Metric not found in indexed corpus."},
         }
+
     return {
         "answer_type": "direct",
         "evidence": [
@@ -113,15 +161,15 @@ def process_query(user_message, document_id):
     if not user_message or not user_message.strip():
         return "Please enter a valid question.", "N/A", "{}"
 
-    agent_url = os.getenv(
-        "AGENT_SERVICE_URL", "http://localhost:8000/api/v1/agent/query"
+    orchestrator_url = os.getenv(
+        "ORCHESTRATOR_SERVICE_URL", "http://localhost:8000/api/v1/query"
     )
     payload = {"question": user_message}
     if document_id and document_id.strip():
         payload["document_id"] = document_id.strip()
 
     try:
-        response = requests.post(agent_url, json=payload, timeout=15)
+        response = requests.post(orchestrator_url, json=payload, timeout=15)
         if response.status_code == 200:
             res_data = response.json()
         else:
@@ -133,7 +181,7 @@ def process_query(user_message, document_id):
     params = res_data.get("params", {})
     evidence = res_data.get("evidence", [])
 
-    formatted_res = f"### 💡 Answer Output\n\n**Answer Type:** `{answer_type}`\n\n"
+    formatted_res = f"### Answer Output\n\n**Answer Type:** `{answer_type}`\n\n"
 
     if answer_type == "direct":
         formatted_res += f"**Result:** {params.get('value', 'N/A')}\n\n"
@@ -144,20 +192,18 @@ def process_query(user_message, document_id):
         values = params.get("values", [])
         formatted_res += "**Retrieved Items:**\n" + "\n".join([f"- {v}" for v in values]) + "\n\n"
     elif answer_type == "insufficient_evidence":
-        formatted_res += f"⚠️ **Insufficient Evidence:** {params.get('reason', 'No detail provided.')}\n\n"
+        formatted_res += f"**Insufficient Evidence:** {params.get('reason', 'No detail provided.')}\n\n"
 
     formatted_res += format_citations(evidence)
 
     return formatted_res, answer_type, json.dumps(res_data, indent=2)
 
 
-# Build Gradio UI
 with gr.Blocks(title="LEDGER - Financial Intelligence Agent") as demo:
-    gr.Markdown("# 📈 LEDGER: Financial Document Intelligence")
+    gr.Markdown("# LEDGER: Financial Document Intelligence")
 
     with gr.Tabs():
-        # TAB 1: Query View
-        with gr.Tab("💬 Financial Assistant"):
+        with gr.Tab("Financial Assistant"):
             with gr.Row():
                 with gr.Column(scale=3):
                     question_input = gr.Textbox(
@@ -174,7 +220,7 @@ with gr.Blocks(title="LEDGER - Financial Intelligence Agent") as demo:
                     answer_output = gr.Markdown(label="Agent Response")
 
                 with gr.Column(scale=2):
-                    gr.Markdown("### 🔍 Verified Execution Metadata")
+                    gr.Markdown("### Verified Execution Metadata")
                     answer_type_output = gr.Textbox(
                         label="Detected Answer Type", interactive=False
                     )
@@ -193,32 +239,39 @@ with gr.Blocks(title="LEDGER - Financial Intelligence Agent") as demo:
                 outputs=[answer_output, answer_type_output, raw_json_output],
             )
 
-        # TAB 2: Dashboard View
-        with gr.Tab("📊 Corpus Dashboard"):
+        with gr.Tab("Corpus Dashboard"):
             with gr.Row():
                 doc_stat_box = gr.Textbox(label="Indexed Files", interactive=False)
                 table_stat_box = gr.Textbox(label="Table Extraction", interactive=False)
                 latency_stat_box = gr.Textbox(label="Performance Metric", interactive=False)
 
-            gr.Markdown("### 📄 Indexed Document Corpus")
+            gr.Markdown("### Indexed Document Corpus")
             doc_table = gr.Dataframe(
                 headers=["Document ID", "Filename", "Pages", "Extracted Tables"],
                 label="Corpus Document List",
                 interactive=False,
             )
 
-            refresh_btn = gr.Button("🔄 Refresh Dashboard Data")
+            gr.Markdown("### Recent Execution Logs")
+            query_table = gr.Dataframe(
+                headers=["Query ID", "Question", "Latency", "Validation Status"],
+                label="Recent System Queries",
+                interactive=False,
+            )
+
+            refresh_btn = gr.Button("Refresh Dashboard Data")
 
             refresh_btn.click(
                 fn=load_dashboard_data,
                 inputs=[],
-                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table],
+                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table, query_table],
             )
 
             demo.load(
                 fn=load_dashboard_data,
-                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table],
+                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table, query_table],
             )
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=True)
+    share_enabled = os.getenv("GRADIO_SHARE", "False").lower() == "true"
+    demo.launch(server_name="0.0.0.0", server_port=7860, share=share_enabled)
