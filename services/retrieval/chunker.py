@@ -1,11 +1,16 @@
 from typing import List
 import uuid
 from shared.schemas import Block, DocumentProcessorResponse, Chunk
+import hashlib
 
 class DocumentChunker:
     def __init__(self, target_chunk_size: int = 40, chunk_overlap: int = 10):
         self.target_chunk_size = target_chunk_size
         self.chunk_overlap = chunk_overlap
+
+    # generates deterministic hex hash
+    def _generate_hex_id(self, input_str: str, length: int = 12) -> str:
+        return hashlib.sha256(input_str.encode("utf-8")).hexdigest()[:length]
 
     def _chunk_table(self, block: Block, doc_id: str, page_num: int) -> List[Chunk]:
         chunks = []
@@ -27,9 +32,12 @@ class DocumentChunker:
         # larger ones -> splitted with preserved headers
         if len(rows_md) <= 15:
             full_table_md += "\n".join([f"| {r} |" for r in rows_md])
+
+            # Generate Hex_id
+            hex_id = self._generate_hex_id(f"{doc_id}_{page_num}_{full_table_md}")
             chunks.append(
                 Chunk(
-                    chunk_id=f"{doc_id}_p{page_num}_tbl_{uuid.uuid4().hex[:6]}",
+                    chunk_id=f"{doc_id}_p{page_num}_tbl_{hex_id}",
                     document_id=doc_id,
                     page=page_num,
                     section=block.section or "General",
@@ -47,9 +55,12 @@ class DocumentChunker:
                     f"| {headers_str} |\n| {divider} |\n"
                     + "\n".join([f"| {r} |" for r in sub_rows])
                 )
+
+                # Generate Hex_id
+                hex_id = self._generate_hex_id(f"{doc_id}_{page_num}_tbl_{i}_{chunk_text}")
                 chunks.append(
                     Chunk(
-                        chunk_id=f"{doc_id}_p{page_num}_tbl_{i}_{uuid.uuid4().hex[:6]}",
+                        chunk_id=f"{doc_id}_p{page_num}_tbl_{i}_{hex_id}",
                         document_id=doc_id,
                         page=page_num,
                         section=block.section or "General",
@@ -71,8 +82,11 @@ class DocumentChunker:
         if not words:
             return chunks
 
+        # Parent ID
+        parent_hex = self._generate_hex_id(f"{doc_id}_p{page_num}_{section_name}_{section_text[:100]}")
+        parent_id = f"{doc_id}_p{page_num}_parent_{parent_hex}"
+
         # Parent Chunk
-        parent_id = f"{doc_id}_p{page_num}_parent_{uuid.uuid4().hex[:6]}" # creates id for the parent
         parent_chunk = Chunk(
             chunk_id=parent_id,
             document_id=doc_id,
@@ -86,6 +100,7 @@ class DocumentChunker:
 
         # Child Chunks
         start = 0
+        idx = 0
         while start < len(words):
             # determining the index of the last word of the chunk
             end = start + self.target_chunk_size
@@ -94,10 +109,11 @@ class DocumentChunker:
             # creating the child chunk text
             child_text = " ".join(child_words)
 
+            child_hex = self._generate_hex_id(f"{parent_id}_child_{idx}_{child_text[:50]}")
             # creating chunk
             chunks.append(
                 Chunk(
-                    chunk_id=f"{doc_id}_p{page_num}_child_{uuid.uuid4().hex[:6]}",
+                    chunk_id=f"{doc_id}_p{page_num}_child_{child_hex}",
                     document_id=doc_id,
                     page=page_num,
                     section=section_name,
@@ -113,6 +129,7 @@ class DocumentChunker:
 
             # updating the start index with respect to the overlap
             start += (self.target_chunk_size - self.chunk_overlap)
+            idx += 1
 
         return chunks
 

@@ -1,0 +1,82 @@
+{
+    "query": "What was CTS's finished-goods balance in 2019?",
+    "reranked": [
+      {
+        "chunk_id": "doc_041_p2_tbl_4d3823",
+        "text": "Section: Balance Sheet\n| Inventory Category | 2018 ($k) | 2019 ($k) |\n| --- | --- | --- |\n| Raw materials | 4,120 | 5,230 |\n| Work in progress | 1,850 | 2,100 |\n| Finished goods | 8,100 | 9,447 |",
+        "original_score": 0.945,
+        "rerank_logit": 6.1,
+        "metadata": {
+          "document_id": "doc_041",
+          "page": 2,
+          "section": "Balance Sheet",
+          "content_type": "table",
+          "retrieval_method": "hybrid",
+          "is_complete_table": true,
+          "num_rows": 3
+        }
+      },
+      {
+        "chunk_id": "doc_041_p2_child_9687f1",
+        "text": "Section: Balance Sheet\nFinished goods inventory increased due to higher manufacturing throughput during Q4.",
+        "original_score": 0.812,
+        "rerank_logit": 3.4,
+        "metadata": {
+          "document_id": "doc_041",
+          "page": 2,
+          "section": "Balance Sheet",
+          "content_type": "text",
+          "retrieval_method": "dense",
+          "is_parent": false,
+          "parent_id": "doc_041_p2_parent_77a1d8"
+        }
+      },
+      {
+        "chunk_id": "doc_041_p2_parent_77a1d8",
+        "text": "Section: Balance Sheet\nFinished goods inventory increased due to higher manufacturing throughput during Q4.",
+        "original_score": 0.735,
+        "rerank_logit": 3.1,
+        "metadata": {
+          "document_id": "doc_041",
+          "page": 2,
+          "section": "Balance Sheet",
+          "content_type": "text",
+          "retrieval_method": "bm25",
+          "is_parent": true
+        }
+      },
+      {
+        "chunk_id": "doc_017_p1_tbl_b4aaa4",
+        "text": "Section: Income Statement\n| Item | 2019 | 2020 |\n| --- | --- | --- |\n| Revenue | 1,200 | 1,450 |\n| Operating Expense | 900 | 1,050 |\n| Net Income | 300 | 400 |",
+        "original_score": 0.518,
+        "rerank_logit": -1.8,
+        "metadata": {
+          "document_id": "doc_017",
+          "page": 1,
+          "section": "Income Statement",
+          "content_type": "table",
+          "retrieval_method": "hybrid",
+          "is_complete_table": true,
+          "num_rows": 3
+        }
+      },
+      {
+        "chunk_id": "doc_017_p1_child_60dfdd",
+        "text": "Section: Income Statement\nTotal operating income for fiscal year 2020 was $142.5M compared to $120.0M in fiscal year 2019.",
+        "original_score": 0.394,
+        "rerank_logit": -2.6,
+        "metadata": {
+          "document_id": "doc_017",
+          "page": 1,
+          "section": "Income Statement",
+          "content_type": "text",
+          "retrieval_method": "dense",
+          "is_parent": false,
+          "parent_id": "doc_017_p1_parent_c3baa8"
+        }
+      }
+    ],
+    "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+    "latency_ms": 42.7,
+    "device": "cuda"
+  }

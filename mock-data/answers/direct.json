@@ -1,0 +1,7 @@
+{
+  "answer_type": "direct",
+  "evidence": [
+    { "document_id": "doc_017", "page": 1, "section": "Income Statement" }
+  ],
+  "params": { "value": "$142.5M" }
+}
