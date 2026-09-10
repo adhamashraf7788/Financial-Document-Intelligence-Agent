@@ -1,0 +1,7 @@
+{
+    "dashboard_stats": {
+      "indexed_documents": 12,
+      "total_tables": 34,
+      "avg_latency_ms": 420
+    }
+  }
