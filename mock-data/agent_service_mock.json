@@ -1,0 +1,35 @@
+{
+    "direct_example": {
+      "answer_type": "direct",
+      "evidence": [
+        { "document_id": "doc_017", "page": 1, "section": "Income Statement" }
+      ],
+      "params": { "value": "$142.5M" }
+    },
+    "calculated_example": {
+      "answer_type": "calculated",
+      "evidence": [
+        { "document_id": "doc_041", "page": 2, "section": "Operating Expenses" }
+      ],
+      "params": {
+        "value": 13.4,
+        "formula": "(3875-3410)/3410*100"
+      }
+    },
+    "multi_span_example": {
+      "answer_type": "multi_span",
+      "evidence": [
+        { "document_id": "doc_022", "page": 3, "section": "Operating Expenses" }
+      ],
+      "params": {
+        "values": ["Marketing", "R&D", "Logistics"]
+      }
+    },
+    "insufficient_evidence_example": {
+      "answer_type": "insufficient_evidence",
+      "evidence": [],
+      "params": {
+        "reason": "No document in the indexed corpus reports restructuring expenses."
+      }
+    }
+  }
