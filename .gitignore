@@ -62,3 +62,8 @@ services/doc_processor/tests/*.pdf
 # --- OS files ---
 .DS_Store
 Thumbs.db
+
+*.zip 
+*.tar.gz
+
+/data
