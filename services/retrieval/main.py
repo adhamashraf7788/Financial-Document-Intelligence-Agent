@@ -8,13 +8,16 @@ from contextlib import asynccontextmanager
 from services.reranker.reranker import CrossEncoderReranker
 from services.retrieval.query_pipeline import QueryPipeline
 
+
+from pydantic import BaseModel, Field
+
+
 # Global service holders
 chunker = None
 embedder = None
 weaviate_store = None
 reranker = None
 pipeline = None
-
 
 
 @asynccontextmanager
@@ -38,6 +41,23 @@ async def lifespan(app: FastAPI):
         weaviate_store.close()
 
 app = FastAPI(title="Retrieval Service - Chunking", lifespan=lifespan)
+
+
+
+
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust for production security as needed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+
 
 # chunking (test route)
 @app.post("/test-chunking")
@@ -188,24 +208,44 @@ async def search_hybrid(
 
 
 # Full retrieval pipeline
-@app.post("/search/pipeline")
-async def execute_query_pipeline(
-    query: str,
-    alpha: float = Query(0.5, ge=0.0, le=1.0, description="Alpha weighting: 0.0 = Pure BM25, 1.0 = Pure Vector"),
-    candidates_retrieved: int = 30,
+# @app.post("/search/pipeline")
+# async def execute_query_pipeline(
+#     query: str,
+#     alpha: float = Query(0.5, ge=0.0, le=1.0, description="Alpha weighting: 0.0 = Pure BM25, 1.0 = Pure Vector"),
+#     candidates_retrieved: int = 30,
+#     top_k_returned: int = 5
+# ):
+#     if not pipeline:
+#         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+#                             detail="Query pipeline is not initialized"
+#                             )
+
+#     return pipeline.execute_pipeline(user_query=query,
+#                                      alpha=alpha,
+#                                      candidates_retrieved=candidates_retrieved,
+#                                      top_k=top_k_returned
+#                                      )
+
+class PipelineSearchRequest(BaseModel):
+    query: str
+    alpha: float = Field(0.5, ge=0.0, le=1.0)
+    candidates_retrieved: int = 30
     top_k_returned: int = 5
-):
+
+@app.post("/search/pipeline")
+async def execute_query_pipeline(request: PipelineSearchRequest):
     if not pipeline:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
-                            detail="Query pipeline is not initialized"
-                            )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+            detail="Query pipeline is not initialized"
+        )
 
-    return pipeline.execute_pipeline(user_query=query,
-                                     alpha=alpha,
-                                     candidates_retrieved=candidates_retrieved,
-                                     top_k=top_k_returned
-                                     )
-
+    return pipeline.execute_pipeline(
+        user_query=request.query,
+        alpha=request.alpha,
+        candidates_retrieved=request.candidates_retrieved,
+        top_k=request.top_k_returned
+    )
 
 # Launching Test server
 if __name__ == '__main__':
