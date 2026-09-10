@@ -12,7 +12,7 @@ HTTP_TIMEOUT = float(os.getenv("RETRIEVAL_HTTP_TIMEOUT", "8.0"))
 
 # --- LLM ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "llama-3.3-70b-versatile")
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "openai/gpt-oss-20b")
 LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "20.0"))  # bounds the LLM call itself
 
 llm = (
