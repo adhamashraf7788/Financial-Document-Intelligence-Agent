@@ -23,26 +23,6 @@ services:
       retries: 5
       start_period: 30s
 
-  # Reranker Service (Cross-Encoder) - EXPERIMENTAL: standalone API, not used by main pipeline
-  # Retrieval imports CrossEncoderReranker directly (services.reranker.reranker)
-  reranker:
-    build:
-      context: .
-      dockerfile: services/reranker/Dockerfile
-    ports:
-      - "8001:8000"
-    environment:
-      - PYTHONUNBUFFERED=1
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    # Falls back to CPU if no GPU available
-    # profiles: ["experimental"]  # Uncomment to exclude from default `docker compose up`
-
   # Retrieval Service (Hybrid Search + Query Pipeline)
   # Uses CrossEncoderReranker via direct import, NOT via HTTP to reranker service
   retrieval:

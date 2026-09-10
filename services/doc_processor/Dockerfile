@@ -14,10 +14,10 @@ RUN apt-get update && apt-get install -y \
 
 COPY services/doc_processor/requirements.txt .
 
-RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir --default-timeout=1000 --upgrade pip
 
 # Install your Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --default-timeout=1000 -r requirements.txt
 
 COPY services/doc_processor/ ./services/doc_processor/
 COPY shared/ ./shared/

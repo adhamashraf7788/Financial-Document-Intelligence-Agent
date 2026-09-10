@@ -4,7 +4,8 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121
+# CPU-only PyTorch (smaller, faster download). Remove --index-url for CUDA if GPU available.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 
 COPY services/reranker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

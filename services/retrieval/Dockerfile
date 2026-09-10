@@ -11,11 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PyTorch with CUDA 12.1 support (falls back to CPU if no GPU)
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121
+RUN pip install --no-cache-dir --default-timeout=1000 torch --index-url https://download.pytorch.org/whl/cu121
 
 # Install Python dependencies
 COPY services/retrieval/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --default-timeout=1000 -r requirements.txt
 
 # Copy service code and shared schemas
 COPY services/retrieval/ ./services/retrieval/
