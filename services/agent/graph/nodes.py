@@ -56,15 +56,22 @@ async def reason_node(state: AgentState):
 
     context_str = json.dumps(data, indent=2)
     prompt = f"""You are a financial analyst agent. Analyze the question and retrieved evidence below.
-Return ONLY a JSON matching one of these answer_types: 'direct', 'calculated', 'multi_span', or 'insufficient_evidence'.
+Return ONLY a single JSON object — no markdown fences, no explanatory text before or after.
 
-Rules:
-1. If arithmetic is needed, provide the formula string in params.
-2. Structure evidence as array of objects with document_id, page, section.
-3. Output strict valid JSON only, no explanatory text.
+Choose exactly one answer_type and match its required params exactly:
+
+- "direct": params = {{"value": <string or number>}}. evidence must have >= 1 citation.
+- "calculated": params = {{"value": <number>, "formula": <string>}}. evidence must have >= 1 citation.
+- "multi_span": params = {{"values": [<string>, <string>, ...]}} (>= 2 items). evidence must have >= 1 citation.
+- "insufficient_evidence": params = {{"reason": <string explaining what's missing>}}. evidence may be [].
+  IMPORTANT: even when you choose insufficient_evidence, params.reason is REQUIRED — never return params: {{}}.
+
+evidence is always an array of objects: {{"document_id": ..., "page": ..., "section": ...}}.
 
 Question: {question}
 Retrieved Context: {context_str}
+
+Respond with only the JSON object.
 """
 
     if llm:
@@ -76,6 +83,14 @@ Retrieved Context: {context_str}
                 if "```json" in content:
                     content = content.split("```json")[1].split("```")[0].strip()
                 parsed = json.loads(content)
+
+                # Defensive repair: model chose insufficient_evidence but forgot
+                # params.reason (schema-invalid but clearly not a hallucinated
+                # answer) — fill a generic reason rather than burning a retry.
+                if parsed.get("answer_type") == "insufficient_evidence" and not parsed.get("params", {}).get("reason"):
+                    parsed.setdefault("params", {})["reason"] = (
+                        "Model indicated insufficient evidence but did not provide a specific reason."
+                    )
 
                 if parsed.get("answer_type") == "calculated" and "formula" in parsed.get("params", {}):
                     calc_res = await calculate.ainvoke(parsed["params"]["formula"])
