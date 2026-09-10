@@ -100,3 +100,32 @@ def numerical_accuracy(predicted, ground_truth, scale=None, tolerance=0.01) -> i
 
     relative_diff = abs(pred_real - truth_real) / abs(truth_real)
     return int(relative_diff <= tolerance)
+
+def retrieval_recall_at_k(gold_doc_ids: list[str], retrieved_doc_ids: list[str], k: int = 5) -> float:
+    if not gold_doc_ids:
+        return 1.0
+
+    top_k = set(retrieved_doc_ids[:k])
+    gold_set = set(gold_doc_ids)
+    found = gold_set & top_k
+
+    return len(found) / len(gold_set)
+
+def retrieval_precision_at_k(gold_doc_ids: list[str], retrieved_doc_ids: list[str], k: int = 5) -> float:
+    top_k = retrieved_doc_ids[:k]
+    if not top_k:
+        return 0.0
+
+    gold_set = set(gold_doc_ids)
+    correct = sum(1 for doc_id in top_k if doc_id in gold_set)
+
+    return correct / len(top_k)
+
+def reciprocal_rank(gold_doc_ids: list[str], retrieved_doc_ids: list[str]) -> float:
+    gold_set = set(gold_doc_ids)
+
+    for rank, doc_id in enumerate(retrieved_doc_ids, start=1):
+        if doc_id in gold_set:
+            return 1.0 / rank
+
+    return 0.0

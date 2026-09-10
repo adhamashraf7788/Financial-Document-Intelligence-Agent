@@ -1,9 +1,10 @@
 import sys
 from pathlib import Path
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scorer import exact_match, f1_score, numerical_accuracy
+from scorer import exact_match, f1_score, numerical_accuracy, retrieval_recall_at_k, retrieval_precision_at_k, reciprocal_rank
 
 
 def test_exact_match_identical():
@@ -49,3 +50,26 @@ def test_numerical_accuracy_per_cent_phrase():
 
 def test_numerical_accuracy_wrong_value():
     assert numerical_accuracy(100, 304811, scale="thousand") == 0
+
+def test_recall_at_k_partial_match():
+    assert retrieval_recall_at_k(["doc_041", "doc_099"], ["doc_017", "doc_041", "doc_005"], k=3) == 0.5
+
+
+def test_recall_at_k_no_gold_docs():
+    assert retrieval_recall_at_k([], ["doc_017"], k=3) == 1.0
+
+
+def test_precision_at_k_partial_match():
+    assert retrieval_precision_at_k(["doc_041", "doc_099"], ["doc_017", "doc_041", "doc_005"], k=3) == pytest.approx(1/3)
+
+
+def test_precision_at_k_empty_results():
+    assert retrieval_precision_at_k(["doc_041"], [], k=3) == 0.0
+
+
+def test_reciprocal_rank_second_place():
+    assert reciprocal_rank(["doc_041", "doc_099"], ["doc_017", "doc_041", "doc_005"]) == 0.5
+
+
+def test_reciprocal_rank_never_found():
+    assert reciprocal_rank(["doc_099"], ["doc_017", "doc_041", "doc_005"]) == 0.0
