@@ -14,3 +14,10 @@ async def health():
 @app.post("/validate_answer", response_model=ValidationResponse)
 async def validate_answer_endpoint(payload: dict) -> ValidationResponse:
     return validate_answer(payload)
+
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=7500)

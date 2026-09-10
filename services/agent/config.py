@@ -6,7 +6,7 @@ load_dotenv()
 
 # --- Retrieval / HTTP ---
 RETRIEVAL_SERVICE_URL = os.getenv(
-    "RETRIEVAL_SERVICE_URL", "http://localhost:8001/api/v1/search/pipeline"
+    "RETRIEVAL_SERVICE_URL", "http://localhost:8000/search/pipeline"
 )
 HTTP_TIMEOUT = float(os.getenv("RETRIEVAL_HTTP_TIMEOUT", "8.0"))
 
