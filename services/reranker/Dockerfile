@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121
 
-COPY requirements.txt .
+COPY services/reranker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY services/reranker/ ./services/reranker/

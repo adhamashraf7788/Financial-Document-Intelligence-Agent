@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY services/retrieval/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy service code and shared schemas

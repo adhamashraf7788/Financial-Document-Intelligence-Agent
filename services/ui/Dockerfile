@@ -2,11 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY services/ui/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY services/ui/ ./services/ui/
+COPY shared/ ./shared/
 
 EXPOSE 7860
 
-CMD ["python", "app.py"]
+CMD ["python", "services/ui/app.py"]
