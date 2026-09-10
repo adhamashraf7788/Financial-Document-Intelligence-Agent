@@ -1,3 +1,4 @@
+from typing import Callable
 from services.evaluation.loader import load_questions
 from services.evaluation.predictor import predict_answer
 from services.evaluation.scorer import exact_match, f1_score, numerical_accuracy, retrieval_recall_at_k, retrieval_precision_at_k, reciprocal_rank
@@ -31,8 +32,7 @@ def score_retrieval(question: dict, retrieval_results: list[dict] | None, k: int
     }
 
 @observe()
-
-def score_question(question: dict, predicted_answer) -> dict:
+def score_question(question: dict, predicted_answer, retrieval_results: list[dict] | None = None) -> dict:
 
     gt_type = question["answer_type"]
     ground_truth = question["ground_truth_answer"]
@@ -69,16 +69,25 @@ def score_question(question: dict, predicted_answer) -> dict:
         result["em"] = exact_match(pred_text, gt_text)
         result["f1"] = f1_score(pred_text, gt_text)
 
-    result.update(score_retrieval(question, retrieval_results=None))
+    result.update(score_retrieval(question, retrieval_results=retrieval_results))
     return result
 
 @observe()
-def run_benchmark(questions_path: str) -> dict:
+def run_benchmark(
+    questions_path: str,
+    predict_fn: Callable = predict_answer,
+    sample_size: int | None = None,
+) -> dict:
 
     questions = load_questions(questions_path)
+    if sample_size is not None and sample_size > 0:
+        questions = questions[:sample_size]
 
     start = time.perf_counter()
-    results = [score_question(q, predict_answer(q["question_text"])) for q in questions]
+    results = []
+    for q in questions:
+        answer, retrieval_results = predict_fn(q["question_text"])
+        results.append(score_question(q, answer, retrieval_results))
     total_time = time.perf_counter() - start
 
     ems = [r["em"] for r in results if "em" in r]

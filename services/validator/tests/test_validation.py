@@ -116,3 +116,9 @@ def test_endpoint_invalid_answer_rejected():
     response = client.post("/validate_answer", json=payload)
     assert response.status_code == 200
     assert response.json()["valid"] is False
+
+
+def test_endpoint_health():
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "service": "answer-validator-api"}
