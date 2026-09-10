@@ -5,9 +5,10 @@ arithmetically correct, before it's shown to the user. This is the single
 source of truth for what counts as a "valid, grounded answer" in Project
 LEDGER.
 
-## Endpoint
+## Endpoints
 
-```
+### 1. Validate Answer
+```http
 POST /validate_answer
 Content-Type: application/json
 ```
@@ -26,6 +27,16 @@ or
 `valid: false` is a normal, successful HTTP response (`200 OK`) — the
 validator did its job correctly by rejecting a bad answer. Only a
 genuinely malformed request would produce a different status code.
+
+### 2. Health Check
+```http
+GET /health
+```
+
+**Response body:**
+```json
+{ "status": "ok", "service": "answer-validator-api" }
+```
 
 ## The 4 accepted answer shapes
 
