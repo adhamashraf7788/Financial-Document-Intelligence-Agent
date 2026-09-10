@@ -529,3 +529,120 @@ final_chunks = rerank_resp.json()["reranked"]
 # each item:
 # chunk_id, text, original_score, rerank_logit, metadata
 ```
+
+
+## agent-service — updates to existing section
+
+### Auth
+
+`POST /api/v1/agent/query` now optionally requires an API key.
+
+| Header | Required | Notes |
+|---|---|---|
+| `X-API-Key` | Only if `AGENT_API_KEY` is set on the server | Missing/invalid key → `401` |
+
+```json
+// 401 response
+{ "detail": "Invalid or missing API key" }
+```
+
+If `AGENT_API_KEY` is unset server-side, the endpoint is unauthenticated (dev
+mode) — callers should not assume auth is always enforced without checking
+the deployment's config.
+
+### `GET /health` — response shape changed
+
+**Before:**
+```json
+{ "status": "ok", "service": "agent-service" }
+```
+
+**After** — no longer a static `ok`; reflects real dependency state:
+```json
+{
+  "status": "ok | degraded",
+  "service": "agent-service",
+  "checks": {
+    "llm_configured": true,
+    "retrieval_service": true
+  }
+}
+```
+
+`status` is `"degraded"` if `llm_configured` is `false` (no `GROQ_API_KEY`) or
+`retrieval_service` is `false` (retrieval-api's `/health` unreachable or
+returned 5xx). On a reachability failure, an additional
+`checks.retrieval_service_error` string field may be present.
+
+### `POST /api/v1/agent/query` — failure-mode clarification
+
+The strict answer schema itself is unchanged, but callers should note:
+`answer_type: "insufficient_evidence"` is now also returned (rather than a
+`5xx`) when the LLM call fails, times out, or returns output that fails
+schema validation — after one internal retry. `params.reason` will contain
+the underlying error, e.g.:
+
+```json
+{
+  "answer_type": "insufficient_evidence",
+  "evidence": [],
+  "params": {
+    "reason": "LLM failed to produce a valid answer after retry: Schema validation failed: ..."
+  }
+}
+```
+
+Consumers should treat this the same as the "no evidence found" case — it is
+not an application error and does not raise a `5xx`.
+
+---
+
+## orchestrator-service — new section (consumed by ui-service)
+
+> Note: orchestrator-service's own implementation isn't part of this review —
+> this documents the contract ui-service currently assumes/calls. Confirm
+> against the actual orchestrator implementation and adjust if it differs.
+
+### `POST /api/v1/query`
+
+Proxies to agent-service (and presumably fans out to retrieval-api /
+reranker-service per the pipeline). ui-service calls this directly.
+
+**Auth:** `X-API-Key` header, forwarded from `ORCHESTRATOR_API_KEY` — assumed
+to match or be validated the same way as agent-service's key.
+
+**Request**
+```json
+{ "question": "string", "document_id": "string (optional)" }
+```
+
+**Response** — `StructuredAgentOutput`, same shape as agent-service's
+`/api/v1/agent/query` response (Strict Answer Schema).
+
+**Errors** — ui-service handles `401`, any non-200 status, and connection
+timeout as a generic "orchestrator call failed" case (it does not currently
+special-case orchestrator-specific error bodies beyond status code).
+
+### `GET /api/v1/dashboard`
+
+**Auth:** `X-API-Key` header.
+
+**Response**
+```json
+{
+  "dashboard_stats": {
+    "indexed_documents": 0,
+    "total_tables": 0,
+    "avg_latency_ms": 0
+  },
+  "indexed_documents": [
+    { "document_id": "string", "filename": "string", "pages": 0, "tables": 0 }
+  ],
+  "recent_queries": [
+    { "query_id": "string", "question": "string", "latency_ms": "string", "status": "string" }
+  ]
+}
+```
+
+All fields are read with `.get(..., default)` on the ui-service side, so
+missing fields degrade gracefully to `0`/`[]` rather than erroring.
