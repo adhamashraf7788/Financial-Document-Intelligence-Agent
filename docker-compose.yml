@@ -1,0 +1,115 @@
+version: "3.8"
+
+services:
+  # Vector Database
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.28.0
+    ports:
+      - "8085:8080"
+      - "50052:50051"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
+      DEFAULT_VECTORIZER_MODULE: "none"
+      ENABLE_MODULES: ""
+      CLUSTER_HOSTNAME: "node1"
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Reranker Service (Cross-Encoder)
+  reranker:
+    build:
+      context: .
+      dockerfile: services/reranker/Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # Falls back to CPU if no GPU available
+
+  # Retrieval Service (Hybrid Search + Query Pipeline)
+  retrieval:
+    build:
+      context: .
+      dockerfile: services/retrieval/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - WEAVIATE_HOST=weaviate
+      - WEAVIATE_PORT=8080
+      - WEAVIATE_GRPC_PORT=50051
+    depends_on:
+      weaviate:
+        condition: service_healthy
+      reranker:
+        condition: service_started
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Document Processor (PDF Ingestion)
+  doc-processor:
+    build:
+      context: .
+      dockerfile: services/doc_processor/Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/app/data:ro
+
+  # Agent Service (LangGraph Reasoning)
+  agent:
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    ports:
+      - "7000:7000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - RETRIEVAL_SERVICE_URL=http://retrieval:8000/search/pipeline
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME:-openai/gpt-oss-20b}
+    depends_on:
+      retrieval:
+        condition: service_started
+    env_file:
+      - .env
+
+  # UI Service (Gradio Interface)
+  ui:
+    build:
+      context: .
+      dockerfile: services/ui/Dockerfile
+    ports:
+      - "7860:7860"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - AGENT_SERVICE_URL=http://agent:7000
+      - GRADIO_SHARE=False
+    depends_on:
+      agent:
+        condition: service_started
+
+volumes:
+  weaviate_data:

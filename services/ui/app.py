@@ -19,6 +19,29 @@ logger = logging.getLogger("ui_service.app")
 ALLOW_MOCK_FALLBACK = os.getenv("UI_ALLOW_MOCK_FALLBACK", "True").lower() == "true"
 
 
+def format_chunk_details(chunk_details: list) -> str:
+    """Format chunk details for display in the dashboard."""
+    if not chunk_details:
+        return "No chunks retrieved"
+    
+    lines = []
+    for chunk in chunk_details:
+        chunk_id = chunk.get("chunk_id", "N/A")[:20] + "..." if len(chunk.get("chunk_id", "")) > 20 else chunk.get("chunk_id", "N/A")
+        rank = chunk.get("rank", "N/A")
+        score = chunk.get("score")
+        rerank_logit = chunk.get("rerank_logit")
+        doc_id = chunk.get("document_id", "N/A")[:15] + "..." if len(chunk.get("document_id", "")) > 15 else chunk.get("document_id", "N/A")
+        page = chunk.get("page", "N/A")
+        section = chunk.get("section", "N/A")[:20] + "..." if len(chunk.get("section", "")) > 20 else chunk.get("section", "N/A")
+        content_type = chunk.get("content_type", "N/A")
+        
+        score_str = f"{score:.4f}" if score is not None else "N/A"
+        rerank_str = f"{rerank_logit:.4f}" if rerank_logit is not None else "N/A"
+        
+        lines.append(f"  Rank {rank}: {chunk_id} | Score: {score_str} | Rerank: {rerank_str} | Doc: {doc_id} | Page: {page} | Section: {section} | Type: {content_type}")
+    return "\n".join(lines)
+
+
 async def load_dashboard_data():
     data, error = await fetch_dashboard()
     source = "live"
@@ -32,10 +55,23 @@ async def load_dashboard_data():
         [d.get("document_id"), d.get("filename"), d.get("pages"), d.get("tables")]
         for d in data.get("indexed_documents", [])
     ]
-    queries = [
-        [q.get("query_id"), q.get("question"), q.get("latency_ms"), q.get("status")]
-        for q in data.get("recent_queries", [])
-    ]
+    
+    # Enhanced query table with chunk details
+    queries = []
+    chunk_details_map = {}  # query_id -> formatted chunk details
+    for q in data.get("recent_queries", []):
+        query_id = q.get("query_id", "N/A")
+        question = q.get("question", "N/A")
+        latency = q.get("latency_ms", "N/A")
+        retry_count = q.get("retry_count", 0)
+        answer_type = q.get("answer_type", "N/A")
+        status = q.get("status", "N/A")
+        
+        queries.append([query_id, question, f"{latency} ms", retry_count, answer_type, status])
+        
+        # Store chunk details for this query
+        chunk_details = q.get("chunk_details", [])
+        chunk_details_map[query_id] = format_chunk_details(chunk_details)
 
     label_suffix = "" if source == "live" else f" ({source})"
     return (
@@ -44,6 +80,7 @@ async def load_dashboard_data():
         f"Avg Latency: {stats.get('avg_latency_ms', 0)} ms{label_suffix}",
         docs,
         queries,
+        chunk_details_map,
     )
 
 
@@ -76,6 +113,19 @@ async def process_query(user_message: str, document_id: str):
     formatted_res = format_answer(res_data, source, error)
     answer_type = res_data.get("answer_type", "N/A")
     return formatted_res, f"{answer_type} [{source}]", json.dumps(res_data, indent=2)
+
+
+def format_chunk_details_display(chunk_details_map: dict) -> str:
+    """Format all chunk details for display."""
+    if not chunk_details_map:
+        return "No query history available."
+    
+    output = []
+    for query_id, details in chunk_details_map.items():
+        output.append(f"### Query: {query_id}")
+        output.append(details)
+        output.append("")
+    return "\n".join(output)
 
 
 with gr.Blocks(title="LEDGER - Financial Intelligence Agent") as demo:
@@ -128,20 +178,23 @@ with gr.Blocks(title="LEDGER - Financial Intelligence Agent") as demo:
 
             gr.Markdown("### Recent Execution Logs")
             query_table = gr.Dataframe(
-                headers=["Query ID", "Question", "Latency", "Validation Status"],
+                headers=["Query ID", "Question", "Latency", "Retries", "Answer Type", "Status"],
                 label="Recent System Queries",
                 interactive=False,
             )
+
+            gr.Markdown("### Retrieved Chunk Details (Per Query)")
+            chunk_details_display = gr.Markdown(label="Chunk Details")
 
             refresh_btn = gr.Button("Refresh Dashboard Data")
             refresh_btn.click(
                 fn=load_dashboard_data,
                 inputs=[],
-                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table, query_table],
+                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table, query_table, chunk_details_display],
             )
             demo.load(
                 fn=load_dashboard_data,
-                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table, query_table],
+                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table, query_table, chunk_details_display],
             )
 
 if __name__ == "__main__":
