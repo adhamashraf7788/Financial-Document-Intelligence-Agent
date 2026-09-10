@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
+from langfuse import observe
 
+@observe()
 
 def load_questions(path: str) -> list[dict]:
 
