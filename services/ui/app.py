@@ -80,7 +80,7 @@ async def load_dashboard_data():
         f"Avg Latency: {stats.get('avg_latency_ms', 0)} ms{label_suffix}",
         docs,
         queries,
-        chunk_details_map,
+        format_chunk_details_display(chunk_details_map),
     )
 
 
