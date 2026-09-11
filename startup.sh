@@ -42,6 +42,11 @@ port_in_use() {
     lsof -i:"$1" >/dev/null 2>&1
 }
 
+# Function to check if weaviate container is running
+weaviate_container_running() {
+    docker ps --filter "name=weaviate" --filter "status=running" --format "{{.Names}}" | grep -q "^weaviate$"
+}
+
 # Function to wait for service to be ready
 wait_for_service() {
     local url=$1
@@ -72,8 +77,18 @@ for port in 7000 7860 8000 8002 8085; do
 done
 
 # Start Weaviate (required for retrieval)
-log_info "Starting Weaviate..."
-if ! port_in_use 8085; then
+log_info "Checking for existing Weaviate container..."
+if weaviate_container_running; then
+    log_info "Found existing Weaviate container 'weaviate', using it"
+    # Get port mappings from the container
+    WEAVIATE_HTTP_PORT=$(docker port weaviate 8080 | cut -d: -f2)
+    WEAVIATE_GRPC_PORT=$(docker port weaviate 50051 | cut -d: -f2)
+    export WEAVIATE_HOST=localhost
+    export WEAVIATE_PORT=${WEAVIATE_HTTP_PORT:-8085}
+    export WEAVIATE_GRPC_PORT=${WEAVIATE_GRPC_PORT:-50052}
+    log_info "Weaviate HTTP: localhost:$WEAVIATE_PORT, GRPC: localhost:$WEAVIATE_GRPC_PORT"
+elif ! port_in_use 8085; then
+    log_info "Starting new Weaviate container..."
     docker run -d \
         --name weaviate-local \
         -p 8085:8080 \
@@ -87,9 +102,15 @@ if ! port_in_use 8085; then
         -v weaviate_data:/var/lib/weaviate \
         cr.weaviate.io/semitechnologies/weaviate:1.28.0
     
+    export WEAVIATE_HOST=localhost
+    export WEAVIATE_PORT=8085
+    export WEAVIATE_GRPC_PORT=50052
     wait_for_service "http://localhost:8085/v1/.well-known/ready" "Weaviate"
 else
     log_info "Weaviate already running on port 8085"
+    export WEAVIATE_HOST=localhost
+    export WEAVIATE_PORT=8085
+    export WEAVIATE_GRPC_PORT=50052
 fi
 
 # Install dependencies if needed
@@ -114,9 +135,7 @@ install_deps "shared"
 log_info "Starting Retrieval Service on port 8000..."
 cd "$PROJECT_ROOT/services/retrieval"
 export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
-export WEAVIATE_HOST=localhost
-export WEAVIATE_PORT=8085
-export WEAVIATE_GRPC_PORT=50051
+# WEAVIATE_HOST, WEAVIATE_PORT, WEAVIATE_GRPC_PORT already set above
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload > /tmp/retrieval.log 2>&1 &
 RETRIEVAL_PID=$!
 cd "$PROJECT_ROOT"
@@ -183,6 +202,7 @@ echo ""
 echo "Press Ctrl+C to stop all services"
 
 # Trap Ctrl+C to kill all child processes
+# Only stop weaviate-local if we created it (not the existing 'weaviate' container)
 trap 'kill $RETRIEVAL_PID $AGENT_PID $DOC_PROCESSOR_PID $UI_PID 2>/dev/null; docker stop weaviate-local 2>/dev/null; echo ""; log_info "All services stopped"; exit 0' INT
 
 # Wait for all background processes

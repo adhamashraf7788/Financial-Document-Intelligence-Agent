@@ -33,6 +33,12 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 # Function to check if port is in use
 function Port-InUse { param($port) (Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue) -ne $null }
 
+# Function to check if weaviate container is running
+function Weaviate-ContainerRunning {
+    $container = docker ps --filter "name=weaviate" --filter "status=running" --format "{{.Names}}" 2>$null
+    return $container -eq "weaviate"
+}
+
 # Function to wait for service to be ready
 function Wait-ForService {
     param($url, $name, $maxAttempts = 30)
@@ -61,8 +67,18 @@ Write-Info "Cleaning up existing processes..."
 }
 
 # Start Weaviate (required for retrieval)
-Write-Info "Starting Weaviate..."
-if (-not (Port-InUse 8085)) {
+Write-Info "Checking for existing Weaviate container..."
+if (Weaviate-ContainerRunning) {
+    Write-Info "Found existing Weaviate container 'weaviate', using it"
+    # Get port mappings from the container
+    $httpPort = (docker port weaviate 8080 2>$null) -replace '.*:',''
+    $grpcPort = (docker port weaviate 50051 2>$null) -replace '.*:',''
+    $env:WEAVIATE_HOST = "localhost"
+    $env:WEAVIATE_PORT = if ($httpPort) { $httpPort } else { "8085" }
+    $env:WEAVIATE_GRPC_PORT = if ($grpcPort) { $grpcPort } else { "50052" }
+    Write-Info "Weaviate HTTP: localhost:$env:WEAVIATE_PORT, GRPC: localhost:$env:WEAVIATE_GRPC_PORT"
+} elseif (-not (Port-InUse 8085)) {
+    Write-Info "Starting new Weaviate container..."
     docker run -d `
         --name weaviate-local `
         -p 8085:8080 `
@@ -76,9 +92,15 @@ if (-not (Port-InUse 8085)) {
         -v weaviate_data:/var/lib/weaviate `
         cr.weaviate.io/semitechnologies/weaviate:1.28.0
     
+    $env:WEAVIATE_HOST = "localhost"
+    $env:WEAVIATE_PORT = "8085"
+    $env:WEAVIATE_GRPC_PORT = "50052"
     Wait-ForService "http://localhost:8085/v1/.well-known/ready" "Weaviate"
 } else {
     Write-Info "Weaviate already running on port 8085"
+    $env:WEAVIATE_HOST = "localhost"
+    $env:WEAVIATE_PORT = "8085"
+    $env:WEAVIATE_GRPC_PORT = "50052"
 }
 
 # Install dependencies if needed
@@ -102,9 +124,7 @@ $env:PYTHONPATH = "$PROJECT_ROOT;$env:PYTHONPATH"
 
 # Start Retrieval Service (port 8000)
 Write-Info "Starting Retrieval Service on port 8000..."
-$env:WEAVIATE_HOST = "localhost"
-$env:WEAVIATE_PORT = "8085"
-$env:WEAVIATE_GRPC_PORT = "50051"
+# WEAVIATE_HOST, WEAVIATE_PORT, WEAVIATE_GRPC_PORT already set above
 $retrievalProc = Start-Process python -ArgumentList "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" -WorkingDirectory "$PROJECT_ROOT\services\retrieval" -PassThru -RedirectStandardOutput "$env:TEMP\retrieval.log" -RedirectStandardError "$env:TEMP\retrieval.err.log"
 
 Wait-ForService "http://localhost:8000/health" "Retrieval Service"
@@ -164,6 +184,7 @@ $cleanup = {
     Write-Info "All services stopped"
     exit 0
 }
+# Only stops weaviate-local (our created container), not the existing 'weaviate' container
 Register-EngineEvent -SourceIdentifier ([System.Console]::CancelKeyPress) -Action $cleanup -SupportEvent
 
 # Wait for all processes
