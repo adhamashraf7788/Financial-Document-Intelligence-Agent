@@ -32,7 +32,7 @@ def score_retrieval(question: dict, retrieval_results: list[dict] | None, k: int
     }
 
 @observe()
-def score_question(question: dict, predicted_answer, retrieval_results: list[dict] | None = None) -> dict:
+def score_question(question: dict, predicted_answer, retrieval_results: list[dict] | None = None, validation_result: dict | None = None) -> dict:
 
     gt_type = question["answer_type"]
     ground_truth = question["ground_truth_answer"]
@@ -70,6 +70,11 @@ def score_question(question: dict, predicted_answer, retrieval_results: list[dic
         result["f1"] = f1_score(pred_text, gt_text)
 
     result.update(score_retrieval(question, retrieval_results=retrieval_results))
+    
+    # Add validation result if available
+    if validation_result:
+        result["validation"] = validation_result
+
     return result
 
 @observe()
@@ -85,9 +90,18 @@ def run_benchmark(
 
     start = time.perf_counter()
     results = []
+    validation_stats = {"total": 0, "passed": 0, "failed": 0}
     for q in questions:
-        answer, retrieval_results = predict_fn(q["question_text"])
-        results.append(score_question(q, answer, retrieval_results))
+        answer, retrieval_results, validation_result = predict_fn(q["question_text"])
+        results.append(score_question(q, answer, retrieval_results, validation_result))
+        
+        # Track validation stats
+        validation_stats["total"] += 1
+        if validation_result and validation_result.get("valid"):
+            validation_stats["passed"] += 1
+        else:
+            validation_stats["failed"] += 1
+    
     total_time = time.perf_counter() - start
 
     ems = [r["em"] for r in results if "em" in r]
@@ -107,6 +121,7 @@ def run_benchmark(
         "recall_at_k": sum(recalls) / len(recalls) if recalls else None,
         "precision_at_k": sum(precisions) / len(precisions) if precisions else None,
         "mrr": sum(rrs) / len(rrs) if rrs else None,
+        "validation_stats": validation_stats,
         "system_performance": {
             "total_time_seconds": round(total_time, 4),
             "avg_latency_ms_per_question": round((total_time / len(questions)) * 1000, 2) if questions else None,

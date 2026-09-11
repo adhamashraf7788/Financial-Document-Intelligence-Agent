@@ -6,12 +6,16 @@ from langfuse import observe
 AGENT_SERVICE_URL = os.getenv(
     "AGENT_SERVICE_URL", "http://localhost:8000/api/v1/agent/query"
 )
+VALIDATOR_SERVICE_URL = os.getenv(
+    "VALIDATOR_SERVICE_URL", "http://localhost:7500/validate_answer"
+)
 
 REQUEST_TIMEOUT = float(os.getenv("AGENT_REQUEST_TIMEOUT", "30.0"))
 
 
 @observe()
-def predict_answer(question: str, document_id: str | None = None) -> tuple[Answer, list[dict] | None]:
+def predict_answer(question: str, document_id: str | None = None) -> tuple[Answer, list[dict] | None, dict | None]:
+    """Returns (answer, retrieval_results, validation_result)"""
     payload = {"question": question}
     if document_id:
         payload["document_id"] = document_id
@@ -33,7 +37,16 @@ def predict_answer(question: str, document_id: str | None = None) -> tuple[Answe
             for ev in answer.evidence
         ] if answer.evidence else None
 
-        return answer, retrieval_results
+        # Validate answer via validator service
+        validation_result = None
+        try:
+            validator_response = httpx.post(VALIDATOR_SERVICE_URL, json=data, timeout=10.0)
+            if validator_response.status_code == 200:
+                validation_result = validator_response.json()
+        except Exception as e:
+            validation_result = {"valid": False, "message": f"Validator error: {e}"}
+
+        return answer, retrieval_results, validation_result
 
     except Exception as exc:
         fallback = InsufficientEvidenceAnswer(
@@ -41,4 +54,4 @@ def predict_answer(question: str, document_id: str | None = None) -> tuple[Answe
             evidence=[],
             params={"reason": f"agent-service call failed: {exc}"},
         )
-        return fallback, None
+        return fallback, None, {"valid": False, "message": f"Agent call failed: {exc}"}

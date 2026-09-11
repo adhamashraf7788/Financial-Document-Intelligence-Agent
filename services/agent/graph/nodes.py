@@ -126,9 +126,9 @@ import json
 import logging
 from typing import Literal
 
-from config import llm, MAX_RETRIEVAL_RETRIES, MAX_LLM_ATTEMPTS
-from tools import calculate, search_documents, search_tables
-from validation import validate_answer
+from config import llm, MAX_RETRIEVAL_RETRIES, MAX_LLM_ATTEMPTS, VALIDATOR_SERVICE_URL
+from tools import calculate, search_documents, search_tables, validate_answer
+from validation import validate_answer as local_validate_answer
 from graph.state import AgentState
 
 logger = logging.getLogger("agent_service.graph")
@@ -221,9 +221,16 @@ Respond with only the JSON object.
                         raise ValueError(f"Calculation failed: {calc_res.get('error')}")
                     parsed["params"]["value"] = calc_res["value"]
 
-                is_valid, err = validate_answer(parsed)
+                is_valid, err = local_validate_answer(parsed)
                 if not is_valid:
                     raise ValueError(f"Schema validation failed: {err}")
+
+                # Call external validator service for additional validation (formula evaluation, etc.)
+                validator_result = await validate_answer.ainvoke(parsed)
+                if not validator_result.get("success"):
+                    raise ValueError(f"Validator service error: {validator_result.get('message')}")
+                if not validator_result.get("valid"):
+                    raise ValueError(f"Validator service rejected: {validator_result.get('message')}")
 
                 return {"final_output": parsed}
 

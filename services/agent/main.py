@@ -111,7 +111,7 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import RETRIEVAL_SERVICE_URL, llm
+from config import RETRIEVAL_SERVICE_URL, llm, VALIDATOR_SERVICE_URL
 from schemas import QueryRequest, StructuredAgentOutput
 from graph.builder import agent_graph
 from tools import get_http_client, close_http_client
@@ -120,6 +120,32 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent_service.main")
 
 
+<<<<<<< Updated upstream
+=======
+# In-memory query history store (max 100 entries)
+QUERY_HISTORY: List[Dict[str, Any]] = []
+MAX_HISTORY_SIZE = 100
+
+# In-memory evaluation runs store
+EVALUATION_RUNS: List[Dict[str, Any]] = []
+MAX_EVAL_RUNS = 20
+
+
+def add_to_history(entry: Dict[str, Any]):
+    """Add entry to query history, maintaining max size."""
+    QUERY_HISTORY.insert(0, entry)
+    if len(QUERY_HISTORY) > MAX_HISTORY_SIZE:
+        QUERY_HISTORY.pop()
+
+
+def add_evaluation_run(entry: Dict[str, Any]):
+    """Add evaluation run to history."""
+    EVALUATION_RUNS.insert(0, entry)
+    if len(EVALUATION_RUNS) > MAX_EVAL_RUNS:
+        EVALUATION_RUNS.pop()
+
+
+>>>>>>> Stashed changes
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     get_http_client()  # warm shared client
@@ -150,7 +176,56 @@ async def run_agent(request: QueryRequest):
             "retry_count": 0,
         }
         result = await agent_graph.ainvoke(initial_state)
+<<<<<<< Updated upstream
         return result["final_output"]
+=======
+        final_output = result["final_output"]
+        
+        latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        retry_count = result.get("retry_count", 0)
+        retrieved_data = result.get("retrieved_data", [])
+        
+        # Extract chunk details for dashboard
+        chunk_details = []
+        for idx, chunk in enumerate(retrieved_data):
+            metadata = chunk.get("metadata", {})
+            chunk_details.append({
+                "chunk_id": chunk.get("chunk_id"),
+                "rank": idx + 1,
+                "score": chunk.get("score"),
+                "rerank_logit": chunk.get("rerank_logit"),
+                "document_id": metadata.get("document_id"),
+                "page": metadata.get("page"),
+                "section": metadata.get("section"),
+                "content_type": metadata.get("content_type"),
+            })
+        
+        # Validate final output via validator service for tracking
+        validation_result = {"valid": True, "message": "OK"}
+        try:
+            validator_resp = await get_http_client().post(VALIDATOR_SERVICE_URL, json=final_output)
+            if validator_resp.status_code == 200:
+                validation_result = validator_resp.json()
+        except Exception as e:
+            validation_result = {"valid": False, "message": f"Validator unavailable: {e}"}
+        
+        # Record query history
+        history_entry = {
+            "query_id": query_id,
+            "question": request.question,
+            "document_id": request.document_id,
+            "latency_ms": latency_ms,
+            "retry_count": retry_count,
+            "answer_type": final_output.get("answer_type") if final_output else "error",
+            "status": "success",
+            "timestamp": datetime.utcnow().isoformat(),
+            "chunk_details": chunk_details,
+            "validation": validation_result,
+        }
+        add_to_history(history_entry)
+        
+        return final_output
+>>>>>>> Stashed changes
     except Exception as e:
         logger.exception("Unhandled error in run_agent")
         raise HTTPException(status_code=500, detail=str(e))
@@ -188,6 +263,244 @@ async def health():
     return {"status": overall, "service": "agent-service", "checks": checks}
 
 
+<<<<<<< Updated upstream
+=======
+@app.get("/api/v1/dashboard")
+async def dashboard():
+    """Returns dashboard stats, document list, structured values, and recent query history."""
+    # Fetch all chunks from retrieval service
+    all_chunks = []
+    try:
+        base_retrieval_url = RETRIEVAL_SERVICE_URL.split("/search")[0]
+        resp = await httpx.AsyncClient(timeout=10.0).get(f"{base_retrieval_url}/documents/all?limit=5000")
+        if resp.status_code == 200:
+            all_chunks = resp.json().get("results", [])
+    except Exception as e:
+        logger.warning(f"Failed to fetch document chunks: {e}")
+    
+    # Aggregate by document
+    doc_map = {}
+    for chunk in all_chunks:
+        meta = chunk.get("metadata", {})
+        doc_id = meta.get("document_id", "unknown")
+        if doc_id not in doc_map:
+            doc_map[doc_id] = {
+                "document_id": doc_id,
+                "filename": meta.get("filename", doc_id),
+                "pages": set(),
+                "tables": 0,
+                "sections": set(),
+                "content_types": set(),
+                "sample_values": [],
+                "chunk_count": 0,
+            }
+        d = doc_map[doc_id]
+        d["chunk_count"] += 1
+        if meta.get("page"):
+            d["pages"].add(meta.get("page"))
+        if meta.get("content_type") == "table":
+            d["tables"] += 1
+        if meta.get("section"):
+            d["sections"].add(meta.get("section"))
+        if meta.get("content_type"):
+            d["content_types"].add(meta.get("content_type"))
+        
+        # Extract structured values from chunk text
+        text = chunk.get("text", "")
+        if text:
+            vals = extract_structured_values(text)
+            d["sample_values"].extend(vals)
+    
+    # Build document list
+    document_list = []
+    total_tables = 0
+    for doc_id, d in doc_map.items():
+        # Deduplicate sample values
+        unique_values = list(dict.fromkeys(d["sample_values"]))[:10]
+        total_tables += d["tables"]
+        document_list.append({
+            "document_id": doc_id,
+            "filename": d["filename"],
+            "pages": sorted(list(d["pages"])),
+            "page_count": len(d["pages"]),
+            "tables": d["tables"],
+            "sections": sorted(list(d["sections"]))[:10],
+            "content_types": list(d["content_types"]),
+            "sample_values": unique_values,
+            "chunk_count": d["chunk_count"],
+        })
+    
+    # Calculate stats
+    indexed_docs = len(document_list)
+    avg_latency = 0
+    recent_successful = [q for q in QUERY_HISTORY if q.get("status") == "success"][:20]
+    if recent_successful:
+        avg_latency = round(sum(q["latency_ms"] for q in recent_successful) / len(recent_successful), 2)
+    
+    # Pipeline health metrics
+    pipeline_health = compute_pipeline_health()
+    
+    # Validation stats
+    validation_stats = compute_validation_stats()
+    
+    # Evaluation runs (last 10)
+    recent_eval_runs = EVALUATION_RUNS[:10]
+    
+    recent_queries = QUERY_HISTORY[:20]
+    
+    return {
+        "dashboard_stats": {
+            "indexed_documents": indexed_docs,
+            "total_tables": total_tables,
+            "avg_latency_ms": avg_latency,
+        },
+        "indexed_documents": document_list,
+        "pipeline_health": pipeline_health,
+        "validation_stats": validation_stats,
+        "evaluation_runs": recent_eval_runs,
+        "recent_queries": recent_queries,
+    }
+
+
+def extract_structured_values(text: str) -> list[str]:
+    """Extract financial structured values from text."""
+    import re
+    values = []
+    
+    # Currency amounts: $1.2B, $1,200,000, $1.2 million, etc.
+    currency_pattern = r'\$[\d,]+\.?\d*\s*(?:million|billion|thousand|M|B|K)?'
+    for match in re.finditer(currency_pattern, text, re.IGNORECASE):
+        val = match.group().strip()
+        if len(val) > 2:
+            values.append(val)
+    
+    # Percentages: 15.5%, 15%
+    pct_pattern = r'\d+\.?\d*\s*%'
+    for match in re.finditer(pct_pattern, text):
+        values.append(match.group().strip())
+    
+    # Financial keywords with nearby numbers
+    financial_keywords = [
+        'revenue', 'income', 'profit', 'loss', 'earnings', 'ebitda',
+        'assets', 'liabilities', 'equity', 'cash', 'debt',
+        'operating income', 'net income', 'gross profit', 'margin',
+        'total assets', 'total liabilities', 'shareholders equity'
+    ]
+    text_lower = text.lower()
+    for keyword in financial_keywords:
+        if keyword in text_lower:
+            # Find numbers near this keyword
+            idx = text_lower.find(keyword)
+            context = text[max(0, idx-50):idx+len(keyword)+50]
+            # Extract numbers from context
+            nums = re.findall(r'[\$\d,]+\.?\d*\s*(?:million|billion|thousand|M|B|K|%)?', context)
+            for n in nums:
+                n = n.strip()
+                if n and len(n) > 1:
+                    values.append(f"{keyword}: {n}")
+    
+    return values[:20]  # Limit per chunk
+
+
+def compute_pipeline_health() -> dict:
+    """Compute pipeline health metrics from query history."""
+    if not QUERY_HISTORY:
+        return {
+            "retrieval_avg_candidates": 0,
+            "retrieval_avg_rerank_ms": 0,
+            "agent_avg_llm_calls": 0,
+            "validator_pass_rate": 0,
+            "total_queries": 0,
+            "success_rate": 0,
+        }
+    
+    recent = QUERY_HISTORY[:50]
+    total = len(recent)
+    successful = [q for q in recent if q.get("status") == "success"]
+    success_count = len(successful)
+    
+    # Average chunk details metrics
+    total_chunks = 0
+    total_rerank = 0.0
+    rerank_count = 0
+    
+    for q in recent:
+        chunks = q.get("chunk_details", [])
+        total_chunks += len(chunks)
+        for c in chunks:
+            if c.get("rerank_logit") is not None:
+                total_rerank += abs(c["rerank_logit"])
+                rerank_count += 1
+    
+    avg_candidates = round(total_chunks / total, 1) if total > 0 else 0
+    avg_rerank = round((total_rerank / rerank_count) * 1000, 1) if rerank_count > 0 else 0
+    
+    # Estimate LLM calls (1 per query + retries)
+    avg_llm = round(sum(q.get("retry_count", 0) + 1 for q in recent) / total, 1) if total > 0 else 0
+    
+    return {
+        "retrieval_avg_candidates": avg_candidates,
+        "retrieval_avg_rerank_ms": avg_rerank,
+        "agent_avg_llm_calls": avg_llm,
+        "validator_pass_rate": round(success_count / total, 2) if total > 0 else 0,
+        "total_queries": total,
+        "success_rate": round(success_count / total, 2) if total > 0 else 0,
+    }
+
+
+def compute_validation_stats() -> dict:
+    """Compute validation statistics from query history."""
+    if not QUERY_HISTORY:
+        return {
+            "total_validations": 0,
+            "passed": 0,
+            "failed": 0,
+            "pass_rate": 0.0,
+        }
+    
+    recent = QUERY_HISTORY[:100]
+    total = 0
+    passed = 0
+    failed = 0
+    
+    for q in recent:
+        validation = q.get("validation")
+        if validation:
+            total += 1
+            if validation.get("valid"):
+                passed += 1
+            else:
+                failed += 1
+    
+    return {
+        "total_validations": total,
+        "passed": passed,
+        "failed": failed,
+        "pass_rate": round(passed / total, 2) if total > 0 else 0.0,
+    }
+
+
+@app.post("/api/v1/evaluation/runs")
+async def record_evaluation_run(report: dict):
+    """Record an evaluation run from the evaluation service."""
+    entry = {
+        "run_id": str(uuid.uuid4())[:8],
+        "timestamp": datetime.utcnow().isoformat(),
+        "total_questions": report.get("total_questions", 0),
+        "exact_match": report.get("exact_match"),
+        "f1": report.get("f1"),
+        "numerical_accuracy": report.get("numerical_accuracy"),
+        "recall_at_k": report.get("recall_at_k"),
+        "precision_at_k": report.get("precision_at_k"),
+        "mrr": report.get("mrr"),
+        "validation_stats": report.get("validation_stats", {}),
+        "system_performance": report.get("system_performance", {}),
+    }
+    add_evaluation_run(entry)
+    return {"status": "recorded", "run_id": entry["run_id"]}
+
+
+>>>>>>> Stashed changes
 if __name__ == "__main__":
     import uvicorn
 

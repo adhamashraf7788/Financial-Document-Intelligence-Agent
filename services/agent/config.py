@@ -10,6 +10,11 @@ RETRIEVAL_SERVICE_URL = os.getenv(
 )
 HTTP_TIMEOUT = float(os.getenv("RETRIEVAL_HTTP_TIMEOUT", "8.0"))
 
+# --- Validator ---
+VALIDATOR_SERVICE_URL = os.getenv(
+    "VALIDATOR_SERVICE_URL", "http://localhost:7500/validate_answer"
+)
+
 # --- LLM ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "openai/gpt-oss-20b")

@@ -121,3 +121,18 @@ async def filter_documents(metadata_key: str, metadata_value: str) -> dict:
     except Exception as e:
         return {"results": [], "error": str(e), "success": False}
     return {"results": [], "success": False}
+
+
+@tool
+async def validate_answer(answer: dict) -> dict:
+    """Validates an answer against the strict schema using the validator service.
+    Returns {"valid": bool, "message": str, "success": bool}.
+    """
+    try:
+        resp = await get_http_client().post(VALIDATOR_SERVICE_URL, json=answer)
+        if resp.status_code == 200:
+            result = resp.json()
+            return {"valid": result.get("valid", False), "message": result.get("message", ""), "success": True}
+    except Exception as e:
+        return {"valid": False, "message": f"Validator service error: {e}", "success": False}
+    return {"valid": False, "message": "Validator service unavailable", "success": False}
