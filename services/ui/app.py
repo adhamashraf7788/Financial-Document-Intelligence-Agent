@@ -42,6 +42,51 @@ def format_chunk_details(chunk_details: list) -> str:
     return "\n".join(lines)
 
 
+def format_document_details(doc: dict) -> str:
+    """Format detailed document information for display."""
+    if not doc:
+        return "No document selected"
+    
+    lines = [
+        f"### Document: {doc.get('filename', doc.get('document_id', 'N/A'))}",
+        f"**Document ID:** `{doc.get('document_id', 'N/A')}`",
+        f"**Pages:** {', '.join(map(str, doc.get('pages', [])))} (Total: {doc.get('page_count', 0)})",
+        f"**Tables:** {doc.get('tables', 0)}",
+        f"**Chunks:** {doc.get('chunk_count', 0)}",
+        f"**Content Types:** {', '.join(doc.get('content_types', []))}",
+        "",
+        f"**Sections:** {', '.join(doc.get('sections', [])) if doc.get('sections') else 'None detected'}",
+        "",
+        f"**Sample Extracted Values:**",
+    ]
+    
+    values = doc.get('sample_values', [])
+    if values:
+        for v in values[:15]:
+            lines.append(f"- {v}")
+    else:
+        lines.append("*No structured values extracted*")
+    
+    return "\n".join(lines)
+
+
+def format_pipeline_health(health: dict) -> str:
+    """Format pipeline health metrics for display."""
+    if not health:
+        return "No pipeline health data available."
+    
+    lines = [
+        "### Pipeline Health Metrics",
+        f"- **Total Queries:** {health.get('total_queries', 0)}",
+        f"- **Success Rate:** {health.get('success_rate', 0):.0%}",
+        f"- **Avg Candidates Retrieved:** {health.get('retrieval_avg_candidates', 0)}",
+        f"- **Avg Rerank Latency:** {health.get('retrieval_avg_rerank_ms', 0):.1f} ms",
+        f"- **Avg LLM Calls/Query:** {health.get('agent_avg_llm_calls', 0)}",
+        f"- **Validator Pass Rate:** {health.get('validator_pass_rate', 0):.0%}",
+    ]
+    return "\n".join(lines)
+
+
 async def load_dashboard_data():
     data, error = await fetch_dashboard()
     source = "live"
@@ -51,14 +96,27 @@ async def load_dashboard_data():
         logger.warning("Dashboard load falling back to %s (%s)", source, error)
 
     stats = data.get("dashboard_stats", {})
-    docs = [
-        [d.get("document_id"), d.get("filename"), d.get("pages"), d.get("tables")]
-        for d in data.get("indexed_documents", [])
-    ]
+    
+    # Build document table with more columns
+    docs = []
+    doc_map = {}  # doc_id -> full doc for detail view
+    for d in data.get("indexed_documents", []):
+        doc_id = d.get("document_id", "N/A")
+        doc_map[doc_id] = d
+        pages_str = ", ".join(map(str, d.get("pages", []))) if d.get("pages") else "N/A"
+        docs.append([
+            doc_id,
+            d.get("filename", "N/A"),
+            pages_str,
+            d.get("page_count", 0),
+            d.get("tables", 0),
+            d.get("chunk_count", 0),
+            ", ".join(d.get("sections", [])[:3]) + ("..." if len(d.get("sections", [])) > 3 else ""),
+        ])
     
     # Enhanced query table with chunk details
     queries = []
-    chunk_details_map = {}  # query_id -> formatted chunk details
+    chunk_details_map = {}
     for q in data.get("recent_queries", []):
         query_id = q.get("query_id", "N/A")
         question = q.get("question", "N/A")
@@ -69,10 +127,13 @@ async def load_dashboard_data():
         
         queries.append([query_id, question, f"{latency} ms", retry_count, answer_type, status])
         
-        # Store chunk details for this query
         chunk_details = q.get("chunk_details", [])
         chunk_details_map[query_id] = format_chunk_details(chunk_details)
-
+    
+    # Pipeline health
+    pipeline_health = data.get("pipeline_health", {})
+    pipeline_health_md = format_pipeline_health(pipeline_health)
+    
     label_suffix = "" if source == "live" else f" ({source})"
     return (
         f"Total Docs: {stats.get('indexed_documents', 0)}{label_suffix}",
@@ -81,6 +142,8 @@ async def load_dashboard_data():
         docs,
         queries,
         format_chunk_details_display(chunk_details_map),
+        pipeline_health_md,
+        json.dumps(doc_map, indent=2),  # Store full doc data for detail view
     )
 
 
@@ -171,9 +234,34 @@ with gr.Blocks(title="LEDGER - Financial Intelligence Agent") as demo:
 
             gr.Markdown("### Indexed Document Corpus")
             doc_table = gr.Dataframe(
-                headers=["Document ID", "Filename", "Pages", "Extracted Tables"],
+                headers=["Document ID", "Filename", "Pages", "Page Count", "Tables", "Chunks", "Sections (sample)"],
                 label="Corpus Document List",
                 interactive=False,
+            )
+            
+            # Document detail viewer
+            gr.Markdown("### Document Details (select a doc ID from table above)")
+            doc_detail_display = gr.Markdown(label="Document Details")
+            doc_data_store = gr.Code(visible=False, label="Document Data Store")
+
+            def show_doc_details(doc_data_json: str, evt: gr.SelectData):
+                """Show details for selected document."""
+                try:
+                    doc_map = json.loads(doc_data_json)
+                    if evt.index and evt.index[0] < len(doc_map):
+                        # Get the selected row's document ID
+                        doc_ids = list(doc_map.keys())
+                        selected_doc_id = doc_ids[evt.index[0]]
+                        doc = doc_map[selected_doc_id]
+                        return format_document_details(doc)
+                except Exception as e:
+                    return f"Error loading document details: {e}"
+                return "Select a document from the table above"
+
+            doc_table.select(
+                fn=show_doc_details,
+                inputs=[doc_data_store],
+                outputs=[doc_detail_display],
             )
 
             gr.Markdown("### Recent Execution Logs")
@@ -186,15 +274,18 @@ with gr.Blocks(title="LEDGER - Financial Intelligence Agent") as demo:
             gr.Markdown("### Retrieved Chunk Details (Per Query)")
             chunk_details_display = gr.Markdown(label="Chunk Details")
 
+            gr.Markdown("### Pipeline Health")
+            pipeline_health_display = gr.Markdown(label="Pipeline Health")
+
             refresh_btn = gr.Button("Refresh Dashboard Data")
             refresh_btn.click(
                 fn=load_dashboard_data,
                 inputs=[],
-                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table, query_table, chunk_details_display],
+                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table, query_table, chunk_details_display, pipeline_health_display, doc_data_store],
             )
             demo.load(
                 fn=load_dashboard_data,
-                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table, query_table, chunk_details_display],
+                outputs=[doc_stat_box, table_stat_box, latency_stat_box, doc_table, query_table, chunk_details_display, pipeline_health_display, doc_data_store],
             )
 
 if __name__ == "__main__":

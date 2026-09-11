@@ -258,45 +258,176 @@ async def health():
 
 @app.get("/api/v1/dashboard")
 async def dashboard():
-    """Returns dashboard stats and recent query history with chunk details."""
-    # Fetch document stats from retrieval service
-    doc_stats = {"indexed_documents": 0, "total_tables": 0}
+    """Returns dashboard stats, document list, structured values, and recent query history."""
+    # Fetch all chunks from retrieval service
+    all_chunks = []
     try:
         base_retrieval_url = RETRIEVAL_SERVICE_URL.split("/search")[0]
-        resp = await httpx.AsyncClient(timeout=5.0).get(f"{base_retrieval_url}/documents/all?limit=1000")
+        resp = await httpx.AsyncClient(timeout=10.0).get(f"{base_retrieval_url}/documents/all?limit=5000")
         if resp.status_code == 200:
             all_chunks = resp.json().get("results", [])
-            doc_ids = set()
-            table_count = 0
-            for chunk in all_chunks:
-                metadata = chunk.get("metadata", {})
-                doc_ids.add(metadata.get("document_id"))
-                if metadata.get("content_type") == "table":
-                    table_count += 1
-            doc_stats = {
-                "indexed_documents": len(doc_ids),
-                "total_tables": table_count,
-            }
     except Exception as e:
-        logger.warning(f"Failed to fetch document stats: {e}")
+        logger.warning(f"Failed to fetch document chunks: {e}")
     
-    # Calculate average latency from recent successful queries
-    recent_successful = [q for q in QUERY_HISTORY if q.get("status") == "success"][:20]
+    # Aggregate by document
+    doc_map = {}
+    for chunk in all_chunks:
+        meta = chunk.get("metadata", {})
+        doc_id = meta.get("document_id", "unknown")
+        if doc_id not in doc_map:
+            doc_map[doc_id] = {
+                "document_id": doc_id,
+                "filename": meta.get("filename", doc_id),
+                "pages": set(),
+                "tables": 0,
+                "sections": set(),
+                "content_types": set(),
+                "sample_values": [],
+                "chunk_count": 0,
+            }
+        d = doc_map[doc_id]
+        d["chunk_count"] += 1
+        if meta.get("page"):
+            d["pages"].add(meta.get("page"))
+        if meta.get("content_type") == "table":
+            d["tables"] += 1
+        if meta.get("section"):
+            d["sections"].add(meta.get("section"))
+        if meta.get("content_type"):
+            d["content_types"].add(meta.get("content_type"))
+        
+        # Extract structured values from chunk text
+        text = chunk.get("text", "")
+        if text:
+            vals = extract_structured_values(text)
+            d["sample_values"].extend(vals)
+    
+    # Build document list
+    document_list = []
+    total_tables = 0
+    for doc_id, d in doc_map.items():
+        # Deduplicate sample values
+        unique_values = list(dict.fromkeys(d["sample_values"]))[:10]
+        total_tables += d["tables"]
+        document_list.append({
+            "document_id": doc_id,
+            "filename": d["filename"],
+            "pages": sorted(list(d["pages"])),
+            "page_count": len(d["pages"]),
+            "tables": d["tables"],
+            "sections": sorted(list(d["sections"]))[:10],
+            "content_types": list(d["content_types"]),
+            "sample_values": unique_values,
+            "chunk_count": d["chunk_count"],
+        })
+    
+    # Calculate stats
+    indexed_docs = len(document_list)
     avg_latency = 0
+    recent_successful = [q for q in QUERY_HISTORY if q.get("status") == "success"][:20]
     if recent_successful:
         avg_latency = round(sum(q["latency_ms"] for q in recent_successful) / len(recent_successful), 2)
     
-    # Return last 20 queries for the recent queries table
+    # Pipeline health metrics
+    pipeline_health = compute_pipeline_health()
+    
     recent_queries = QUERY_HISTORY[:20]
     
     return {
         "dashboard_stats": {
-            "indexed_documents": doc_stats["indexed_documents"],
-            "total_tables": doc_stats["total_tables"],
+            "indexed_documents": indexed_docs,
+            "total_tables": total_tables,
             "avg_latency_ms": avg_latency,
         },
-        "indexed_documents": [],  # Could be expanded with document list
+        "indexed_documents": document_list,
+        "pipeline_health": pipeline_health,
         "recent_queries": recent_queries,
+    }
+
+
+def extract_structured_values(text: str) -> list[str]:
+    """Extract financial structured values from text."""
+    import re
+    values = []
+    
+    # Currency amounts: $1.2B, $1,200,000, $1.2 million, etc.
+    currency_pattern = r'\$[\d,]+\.?\d*\s*(?:million|billion|thousand|M|B|K)?'
+    for match in re.finditer(currency_pattern, text, re.IGNORECASE):
+        val = match.group().strip()
+        if len(val) > 2:
+            values.append(val)
+    
+    # Percentages: 15.5%, 15%
+    pct_pattern = r'\d+\.?\d*\s*%'
+    for match in re.finditer(pct_pattern, text):
+        values.append(match.group().strip())
+    
+    # Financial keywords with nearby numbers
+    financial_keywords = [
+        'revenue', 'income', 'profit', 'loss', 'earnings', 'ebitda',
+        'assets', 'liabilities', 'equity', 'cash', 'debt',
+        'operating income', 'net income', 'gross profit', 'margin',
+        'total assets', 'total liabilities', 'shareholders equity'
+    ]
+    text_lower = text.lower()
+    for keyword in financial_keywords:
+        if keyword in text_lower:
+            # Find numbers near this keyword
+            idx = text_lower.find(keyword)
+            context = text[max(0, idx-50):idx+len(keyword)+50]
+            # Extract numbers from context
+            nums = re.findall(r'[\$\d,]+\.?\d*\s*(?:million|billion|thousand|M|B|K|%)?', context)
+            for n in nums:
+                n = n.strip()
+                if n and len(n) > 1:
+                    values.append(f"{keyword}: {n}")
+    
+    return values[:20]  # Limit per chunk
+
+
+def compute_pipeline_health() -> dict:
+    """Compute pipeline health metrics from query history."""
+    if not QUERY_HISTORY:
+        return {
+            "retrieval_avg_candidates": 0,
+            "retrieval_avg_rerank_ms": 0,
+            "agent_avg_llm_calls": 0,
+            "validator_pass_rate": 0,
+            "total_queries": 0,
+            "success_rate": 0,
+        }
+    
+    recent = QUERY_HISTORY[:50]
+    total = len(recent)
+    successful = [q for q in recent if q.get("status") == "success"]
+    success_count = len(successful)
+    
+    # Average chunk details metrics
+    total_chunks = 0
+    total_rerank = 0.0
+    rerank_count = 0
+    
+    for q in recent:
+        chunks = q.get("chunk_details", [])
+        total_chunks += len(chunks)
+        for c in chunks:
+            if c.get("rerank_logit") is not None:
+                total_rerank += abs(c["rerank_logit"])
+                rerank_count += 1
+    
+    avg_candidates = round(total_chunks / total, 1) if total > 0 else 0
+    avg_rerank = round((total_rerank / rerank_count) * 1000, 1) if rerank_count > 0 else 0
+    
+    # Estimate LLM calls (1 per query + retries)
+    avg_llm = round(sum(q.get("retry_count", 0) + 1 for q in recent) / total, 1) if total > 0 else 0
+    
+    return {
+        "retrieval_avg_candidates": avg_candidates,
+        "retrieval_avg_rerank_ms": avg_rerank,
+        "agent_avg_llm_calls": avg_llm,
+        "validator_pass_rate": round(success_count / total, 2) if total > 0 else 0,
+        "total_queries": total,
+        "success_rate": round(success_count / total, 2) if total > 0 else 0,
     }
 
 
